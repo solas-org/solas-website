@@ -5,12 +5,16 @@
 
 import React, { useEffect, useRef, useState, memo } from 'react';
 
+type ShapeType = 'arch' | 'semicircle' | 'slanted' | 'triangle' | 'diamond' | 'flower' | 'cookie' | 'clover' | 'bun' | 'pill' | 'heart';
+type ColorType = 'primary' | 'tertiary' | 'rose';
+type DepthType = 'far' | 'mid' | 'front';
+
 interface ShapeItem {
-  id: string;
-  type: 'arch' | 'semicircle' | 'slanted' | 'triangle' | 'diamond' | 'flower' | 'cookie' | 'clover' | 'bun' | 'pill' | 'heart';
+  id: number;
+  type: ShapeType;
   size: number;
-  x: number; // % width of page
-  y: number; // % height of page
+  x: number; // %
+  y: number; // %
   vx: number;
   vy: number;
   maxSpeed: number;
@@ -21,32 +25,16 @@ interface ShapeItem {
   rotation: number;
   rotSpeed: number;
   flashActive: boolean;
-  colorType: 'primary' | 'tertiary' | 'rose';
-  depth: 'far' | 'mid' | 'front';
+  colorType: ColorType;
+  depth: DepthType;
 }
 
-interface ExplosionParticle {
-  id: string;
-  x: number; // px
-  y: number; // px
-  vx: number;
-  vy: number;
-  size: number;
-  color: string;
-  opacity: number;
-}
+// ---------------------------------------------------------
+// CONSTANTS & PATH2D CACHE
+// ---------------------------------------------------------
+const DEG_TO_RAD = Math.PI / 180;
 
-interface Shockwave {
-  id: string;
-  x: number; // px
-  y: number; // px
-  size: number;
-  color: string;
-  opacity: number;
-}
-
-// Cached SVG paths for ultra-fast canvas rendering via Path2D
-const SVG_PATH_STRINGS: Record<ShapeItem['type'], string> = {
+const SVG_PATH_STRINGS: Record<ShapeType, string> = {
   arch: 'M 20 80 V 50 A 30 30 0 0 1 80 50 V 80 Z',
   semicircle: 'M 15 70 A 35 35 0 0 1 85 70 Z',
   slanted: 'M 35 22 C 40 22, 78 22, 81 22 C 85 22, 87 25, 85 29 L 71 73 C 69 77, 66 79, 61 79 H 22 C 16 79, 13 75, 15 70 L 27 29 C 29 25, 31 22, 35 22 Z',
@@ -60,26 +48,63 @@ const SVG_PATH_STRINGS: Record<ShapeItem['type'], string> = {
   heart: 'M 50 30 C 50 15, 20 12, 20 40 C 20 62, 45 78, 50 82 C 55 78, 80 62, 80 40 C 80 12, 50 15, 50 30 Z',
 };
 
-let cachedPath2DMap: Record<string, Path2D> | null = null;
-function getPath2D(type: ShapeItem['type']): Path2D {
-  if (!cachedPath2DMap) {
-    cachedPath2DMap = {} as Record<ShapeItem['type'], Path2D>;
-    for (const [key, d] of Object.entries(SVG_PATH_STRINGS)) {
-      cachedPath2DMap[key as ShapeItem['type']] = new Path2D(d);
+const SHAPE_TYPES: ShapeType[] = Object.keys(SVG_PATH_STRINGS) as ShapeType[];
+const PATH2D_MAP: Record<ShapeType, Path2D> = (() => {
+  const map = {} as Record<ShapeType, Path2D>;
+  for (const type of SHAPE_TYPES) {
+    if (typeof Path2D !== 'undefined') {
+      map[type] = new Path2D(SVG_PATH_STRINGS[type]);
     }
   }
-  return cachedPath2DMap[type] || cachedPath2DMap.arch;
+  return map;
+})();
+
+const SHAPE_COLORS = {
+  primary: { fill: 'rgba(208, 188, 255, 0.16)', stroke: 'rgba(208, 188, 255, 0.42)' },
+  tertiary: { fill: 'rgba(239, 184, 200, 0.16)', stroke: 'rgba(239, 184, 200, 0.42)' },
+  rose: { fill: 'rgba(244, 63, 94, 0.32)', stroke: 'rgba(251, 113, 133, 0.45)' },
+  white: { fill: 'rgba(255, 255, 255, 0.95)', stroke: '#ffffff' },
+};
+
+const PARTICLE_COLORS_ROSE = ['#f43f5e', '#fda4af', '#e11d48'];
+const PARTICLE_COLORS_NEUTRAL = ['#d0bcff', '#efb8c8', '#86e3ce', '#c2aeff'];
+
+// ---------------------------------------------------------
+// MOBILE DETECTION HOOK (Zero-listener leaks)
+// ---------------------------------------------------------
+function useIsMobile(breakpointPx = 768): boolean {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.innerWidth <= breakpointPx ||
+      window.matchMedia('(pointer: coarse)').matches
+    );
+  });
+
+  useEffect(() => {
+    const widthMql = window.matchMedia(`(max-width: ${breakpointPx}px)`);
+    const pointerMql = window.matchMedia('(pointer: coarse)');
+
+    const update = () => setIsMobile(widthMql.matches || pointerMql.matches);
+
+    widthMql.addEventListener('change', update);
+    pointerMql.addEventListener('change', update);
+    return () => {
+      widthMql.removeEventListener('change', update);
+      pointerMql.removeEventListener('change', update);
+    };
+  }, [breakpointPx]);
+
+  return isMobile;
 }
 
-/* =========================================================
- * 1. HARDWARE-SYNCHRONIZED ASCII WAVES BACKGROUND COMPONENT
- * Renders in absolute page space for 100% compositor sync
- * ========================================================= */
+// ---------------------------------------------------------
+// 1. HARDWARE-SYNCHRONIZED ASCII WAVES COMPONENT
+// ---------------------------------------------------------
 const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerRef = useRef({ x: -9999, y: -9999, active: false });
 
-  // Track cursor in page coordinates
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       pointerRef.current.x = e.pageX;
@@ -98,11 +123,10 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
     };
   }, []);
 
-  // Render loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
+    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
     if (!ctx) return;
 
     let animationFrameId: number;
@@ -110,13 +134,14 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
     let h = 0;
     let isVisible = !document.hidden;
 
-    const handleVisibilityChange = () => {
-      isVisible = !document.hidden;
-      if (isVisible && !animationFrameId) {
-        animationFrameId = requestAnimationFrame(draw);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const characters = [' ', '.', ':', '-', '+', '*', '=', '%', '@', '#'];
+    const rampMax = characters.length - 1;
+    const cell = 13;
+    const colStep = cell * 0.6;
+    const interactionRadius = 140;
+    const interactionRadiusSq = interactionRadius * interactionRadius;
+    const invInteractionRadius = 1 / interactionRadius;
+    const fontStr = `600 ${cell}px ui-monospace, SFMono-Regular, Consolas, monospace`;
 
     const updateDimensions = () => {
       const parent = canvas.parentElement;
@@ -126,55 +151,38 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
       if (targetW !== w || targetH !== h) {
         w = targetW;
         h = targetH;
-        const dpr = Math.min(1.5, window.devicePixelRatio || 1);
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
+        // Background ASCII looks crisp enough at DPR 1.0 - 1.25 while saving huge bandwidth
+        const dpr = Math.min(1.25, window.devicePixelRatio || 1);
+        canvas.width = (w * dpr) | 0;
+        canvas.height = (h * dpr) | 0;
         canvas.style.width = `${w}px`;
         canvas.style.height = `${h}px`;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.font = fontStr;
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(208, 188, 255, 0.22)';
       }
     };
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions, { passive: true });
 
-    // ResizeObserver on parent to adapt to content height changes smoothly
     let resizeObserver: ResizeObserver | null = null;
     if (canvas.parentElement && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => {
-        updateDimensions();
-      });
+      resizeObserver = new ResizeObserver(updateDimensions);
       resizeObserver.observe(canvas.parentElement);
     }
 
-    // Presets
-    const characters = ' .:-+*=%@#';
-    const elementSize = 13;
-    const fontWeight = '600';
-    const waveTension = 0.1;
-    const speedVal = 0.5;
-    const twistVal = 0.1;
-    const scaleVal = 0.08;
-    const intensityVal = 0.6;
-    const cursorForceVal = 1;
-    const interactionRadius = 140;
-    const interactionRadiusSq = interactionRadius * interactionRadius;
-
-    const driftX = 0;
-    const driftY = -1;
-    const driftRate = 0.5;
-
-    const rampArr = characters;
-    const rampMax = rampArr.length - 1;
-    const startTime = performance.now();
-
-    // Noise function
-    const noise = (x: number, y: number, t: number) => {
-      const a = Math.sin(x * 1.3 + t) * Math.cos(y * 1.1 - t * 0.7);
-      const b = Math.sin((x + y) * 0.7 + t * 0.5);
-      const c = Math.sin(x * 0.4 - y * 0.6 + t * 0.3);
-      return (a + b + c) * 0.33333;
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden;
+      if (isVisible && !animationFrameId) {
+        animationFrameId = requestAnimationFrame(draw);
+      }
     };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const startTime = performance.now();
 
     const draw = (now: number) => {
       if (!isVisible) {
@@ -187,64 +195,57 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
         return;
       }
 
-      const cell = Math.max(4, elementSize);
-      const colStep = cell * 0.6;
-      const cols = Math.ceil(w / colStep) + 1;
-      const totalRows = Math.ceil(h / cell);
+      const totalRows = ((h / cell) | 0) + 1;
+      const cols = ((w / colStep) | 0) + 1;
 
-      // Only render visible viewport rows with a small buffer for ultra-high FPS
       const currentScrollY = window.scrollY || window.pageYOffset || 0;
       const viewportH = window.innerHeight;
-      const startRow = Math.max(0, Math.floor((currentScrollY - 120) / cell));
-      const endRow = Math.min(totalRows, Math.ceil((currentScrollY + viewportH + 120) / cell));
+      const startRow = Math.max(0, ((currentScrollY - 100) / cell) | 0);
+      const endRow = Math.min(totalRows, (((currentScrollY + viewportH + 100) / cell) | 0) + 1);
 
-      const clearTop = Math.max(0, startRow * cell);
-      const clearHeight = Math.min(h - clearTop, (endRow - startRow + 1) * cell);
+      const clearTop = startRow * cell;
+      const clearHeight = (endRow - startRow + 1) * cell;
       ctx.clearRect(0, clearTop, w, clearHeight);
 
-      ctx.font = `${fontWeight} ${cell}px ui-monospace, SFMono-Regular, Consolas, monospace`;
-      ctx.textBaseline = 'top';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = 'rgba(208, 188, 255, 0.22)';
-
-      const t = ((now - startTime) * 0.001) * speedVal;
+      const t = (now - startTime) * 0.0005; // speedVal = 0.5
+      const oy = -t * 0.5; // driftY = -1, driftRate = 0.5
+      const waveT = t * 0.1; // waveTension = 0.1
       const p = pointerRef.current;
-
-      const ox = t * driftRate * driftX;
-      const oy = t * driftRate * driftY;
-      const waveT = t * waveTension;
 
       for (let j = startRow; j < endRow; j++) {
         const py = j * cell;
-        const jTwist = Math.sin((j + t) * twistVal) * 2;
-        const jScaleOy = j * scaleVal + oy;
+        const jTwist = Math.sin((j + t) * 0.1) * 2;
+        const jScaleOy = j * 0.08 + oy;
 
         for (let i = 0; i < cols; i++) {
           const px = i * colStep;
-          const iTwist = Math.cos((i + t) * twistVal) * 2;
-
-          const nx = i * scaleVal + ox + jTwist;
+          const iTwist = Math.cos((i + t) * 0.1) * 2;
+          const nx = i * 0.08 + jTwist;
           const ny = jScaleOy + iTwist;
 
-          let v = noise(nx, ny, waveT);
+          let v = (
+            Math.sin(nx * 1.3 + waveT) * Math.cos(ny * 1.1 - waveT * 0.7) +
+            Math.sin((nx + ny) * 0.7 + waveT * 0.5) +
+            Math.sin(nx * 0.4 - ny * 0.6 + waveT * 0.3)
+          ) * 0.33333;
 
           if (p.active) {
             const dx = px - p.x;
             const dy = py - p.y;
-            if (Math.abs(dx) < interactionRadius && Math.abs(dy) < interactionRadius) {
-              const dSq = dx * dx + dy * dy;
-              if (dSq < interactionRadiusSq) {
-                const d = Math.sqrt(dSq);
-                const falloff = 1 - d / interactionRadius;
-                v += Math.sin(d * 0.08 - t * 4) * falloff * cursorForceVal;
-              }
+            const dSq = dx * dx + dy * dy;
+            if (dSq < interactionRadiusSq) {
+              const d = Math.sqrt(dSq);
+              const falloff = 1 - d * invInteractionRadius;
+              v += Math.sin(d * 0.08 - t * 4) * falloff;
             }
           }
 
-          const norm = Math.max(0, Math.min(1, (v * intensityVal + 1) * 0.5));
-          const chIdx = Math.round(norm * rampMax);
-          if (chIdx > 0) {
-            ctx.fillText(rampArr[chIdx], px, py);
+          const norm = (v * 0.6 + 1) * 0.5;
+          if (norm > 0.05) {
+            const chIdx = (norm * rampMax + 0.5) | 0;
+            if (chIdx > 0) {
+              ctx.fillText(characters[chIdx < rampMax ? chIdx : rampMax], px, py);
+            }
           }
         }
       }
@@ -269,37 +270,38 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
   );
 });
 
-/* =========================================================
- * 2. HARDWARE-SYNCHRONIZED INTERACTIVE SHAPES & PARTICLES CANVAS
- * Renders in absolute page space for 100% compositor sync
- * ========================================================= */
+// ---------------------------------------------------------
+// 2. HARDWARE-SYNCHRONIZED INTERACTIVE SHAPES & PARTICLES
+// ---------------------------------------------------------
+const MAX_PARTICLES = 250;
+const MAX_SHOCKWAVES = 40;
+
 const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTab }: { activeTab: 'landing' | 'docs' }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const shapesRef = useRef<ShapeItem[]>([]);
-  const particlesRef = useRef<ExplosionParticle[]>([]);
-  const shockwavesRef = useRef<Shockwave[]>([]);
+  const nextShapeId = useRef(0);
 
-  // Track pure raw mouse position in document page coordinates
+  // Flat typed arrays: [x, y, vx, vy, size, opacity, colorIdx]
+  const particlesData = useRef(new Float32Array(MAX_PARTICLES * 7));
+  const particleColors = useRef<string[]>(new Array(MAX_PARTICLES).fill(''));
+  const particleCount = useRef(0);
+
+  // Shockwaves flat: [x, y, size, opacity, isAggressive]
+  const shockwavesData = useRef(new Float32Array(MAX_SHOCKWAVES * 5));
+  const shockwaveCount = useRef(0);
+
   const mousePosRef = useRef({ x: -9999, y: -9999 });
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
-  const nextIdRef = useRef(0);
-  const generateId = () => `shape_${nextIdRef.current++}_${Date.now()}`;
-
-  const shapeTypes: ShapeItem['type'][] = [
-    'arch', 'semicircle', 'slanted', 'triangle', 'diamond', 
-    'flower', 'cookie', 'clover', 'bun', 'pill', 'heart'
-  ];
-
-  const winWRef = useRef(typeof window !== 'undefined' ? window.innerWidth : 1920);
-  const totalHRef = useRef(typeof window !== 'undefined' ? window.innerHeight * 4 : 4000);
+  const winWRef = useRef(1920);
+  const totalHRef = useRef(4000);
 
   const createRandomShape = (isAggressive = false, borderSpawn = false): ShapeItem => {
-    const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
+    const type = SHAPE_TYPES[(Math.random() * SHAPE_TYPES.length) | 0];
     const depthRoll = Math.random();
-    const depth: ShapeItem['depth'] = isAggressive ? 'front' : (depthRoll < 0.25 ? 'far' : depthRoll > 0.75 ? 'front' : 'mid');
-    
+    const depth: DepthType = isAggressive ? 'front' : (depthRoll < 0.25 ? 'far' : depthRoll > 0.75 ? 'front' : 'mid');
+
     const baseSize = isAggressive ? 30 + Math.random() * 20 : 25 + Math.random() * 12;
     const size = depth === 'far' ? baseSize * 0.75 : depth === 'front' ? baseSize * 1.25 : baseSize;
 
@@ -320,17 +322,15 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
     const maxSpeed = (isAggressive ? 0.035 + Math.random() * 0.05 : 0.026 + Math.random() * 0.05) * speedMult;
     const force = (isAggressive ? 0.0012 + Math.random() * 0.002 : 0.0006 + Math.random() * 0.0012) * speedMult;
     const initialSpeed = maxSpeed * (0.2 + Math.random() * 0.1);
-    const vx = Math.cos(angle) * initialSpeed;
-    const vy = Math.sin(angle) * initialSpeed;
 
     return {
-      id: generateId(),
+      id: nextShapeId.current++,
       type,
       size,
       x,
       y,
-      vx,
-      vy,
+      vx: Math.cos(angle) * initialSpeed,
+      vy: Math.sin(angle) * initialSpeed,
       maxSpeed,
       force,
       isAggressive,
@@ -345,37 +345,41 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
   };
 
   const triggerExplosion = (shape: ShapeItem, pageX: number, pageY: number) => {
-    shockwavesRef.current.push({
-      id: `sw_${Date.now()}_${Math.random()}`,
-      x: pageX,
-      y: pageY,
-      size: shape.size * 0.5,
-      color: shape.isAggressive ? 'rgba(244, 63, 94, 0.75)' : 'rgba(208, 188, 255, 0.75)',
-      opacity: 0.95,
-    });
+    // Add Shockwave
+    if (shockwaveCount.current < MAX_SHOCKWAVES) {
+      const idx = shockwaveCount.current * 5;
+      const data = shockwavesData.current;
+      data[idx] = pageX;
+      data[idx + 1] = pageY;
+      data[idx + 2] = shape.size * 0.5;
+      data[idx + 3] = 0.95; // opacity
+      data[idx + 4] = shape.isAggressive ? 1 : 0;
+      shockwaveCount.current++;
+    }
 
-    const count = 14 + Math.floor(Math.random() * 6);
-    const particleColors = shape.isAggressive
-      ? ['#f43f5e', '#fda4af', '#e11d48']
-      : ['#d0bcff', '#efb8c8', '#86e3ce', '#c2aeff'];
+    // Add Particles
+    const count = 14 + ((Math.random() * 6) | 0);
+    const colorPalette = shape.isAggressive ? PARTICLE_COLORS_ROSE : PARTICLE_COLORS_NEUTRAL;
+    const pData = particlesData.current;
+    const pColors = particleColors.current;
 
     for (let i = 0; i < count; i++) {
+      if (particleCount.current >= MAX_PARTICLES) break;
+      const pIdx = particleCount.current * 7;
       const angle = Math.random() * Math.PI * 2;
       const speed = 1 + Math.random() * 2;
-      particlesRef.current.push({
-        id: `particle_${Date.now()}_${Math.random()}`,
-        x: pageX,
-        y: pageY,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        size: 4 + Math.random() * 6,
-        color: particleColors[Math.floor(Math.random() * particleColors.length)],
-        opacity: 1,
-      });
+
+      pData[pIdx] = pageX;
+      pData[pIdx + 1] = pageY;
+      pData[pIdx + 2] = Math.cos(angle) * speed;
+      pData[pIdx + 3] = Math.sin(angle) * speed;
+      pData[pIdx + 4] = 4 + Math.random() * 6; // size
+      pData[pIdx + 5] = 1.0; // opacity
+      pColors[particleCount.current] = colorPalette[(Math.random() * colorPalette.length) | 0];
+      particleCount.current++;
     }
   };
 
-  // Setup initial shapes
   useEffect(() => {
     const initial: ShapeItem[] = [];
     for (let i = 0; i < 26; i++) initial.push(createRandomShape(false));
@@ -383,18 +387,15 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
     shapesRef.current = initial;
   }, []);
 
-  // Global mouse tracking in page coordinates
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current.x = e.pageX;
       mousePosRef.current.y = e.pageY;
     };
-
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Global click explosion handler
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -404,17 +405,19 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
       const clickY = e.pageY;
       const winW = winWRef.current;
       const totalH = totalHRef.current;
-
       const shapes = shapesRef.current;
+
       for (let i = shapes.length - 1; i >= 0; i--) {
         const s = shapes[i];
         if (s.isEaten) continue;
 
-        const centerX = (s.x / 100) * winW + s.size / 2;
-        const centerY = (s.y / 100) * totalH + s.size / 2;
-        const radius = (s.size / 2) * s.scale + 20;
+        const centerX = (s.x * 0.01) * winW + s.size * 0.5;
+        const centerY = (s.y * 0.01) * totalH + s.size * 0.5;
+        const radius = (s.size * 0.5) * s.scale + 20;
 
-        if (Math.hypot(clickX - centerX, clickY - centerY) <= radius) {
+        const dx = clickX - centerX;
+        const dy = clickY - centerY;
+        if (dx * dx + dy * dy <= radius * radius) {
           triggerExplosion(s, centerX, centerY);
           s.isEaten = true;
           break;
@@ -426,25 +429,15 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  // High-performance canvas rendering & physics loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
+    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
     if (!ctx) return;
 
     let animationFrameId: number;
     let lastTime = performance.now();
     let isVisible = !document.hidden;
-
-    const handleVisibilityChange = () => {
-      isVisible = !document.hidden;
-      if (isVisible) {
-        lastTime = performance.now();
-        if (!animationFrameId) animationFrameId = requestAnimationFrame(loop);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const updateDimensions = () => {
       const parent = canvas.parentElement;
@@ -454,9 +447,9 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
       winWRef.current = targetW;
       totalHRef.current = targetH;
 
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(targetW * dpr);
-      canvas.height = Math.floor(targetH * dpr);
+      const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+      canvas.width = (targetW * dpr) | 0;
+      canvas.height = (targetH * dpr) | 0;
       canvas.style.width = `${targetW}px`;
       canvas.style.height = `${targetH}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -467,19 +460,18 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
 
     let resizeObserver: ResizeObserver | null = null;
     if (canvas.parentElement && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => {
-        updateDimensions();
-      });
+      resizeObserver = new ResizeObserver(updateDimensions);
       resizeObserver.observe(canvas.parentElement);
     }
 
-    // Color definitions for styles
-    const colors = {
-      primary: { fill: 'rgba(208, 188, 255, 0.16)', stroke: 'rgba(208, 188, 255, 0.42)' },
-      tertiary: { fill: 'rgba(239, 184, 200, 0.16)', stroke: 'rgba(239, 184, 200, 0.42)' },
-      rose: { fill: 'rgba(244, 63, 94, 0.32)', stroke: 'rgba(251, 113, 133, 0.45)' },
-      white: { fill: 'rgba(255, 255, 255, 0.95)', stroke: '#ffffff' },
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden;
+      if (isVisible) {
+        lastTime = performance.now();
+        if (!animationFrameId) animationFrameId = requestAnimationFrame(loop);
+      }
     };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const loop = (now: number) => {
       if (!isVisible) {
@@ -487,9 +479,9 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
         return;
       }
 
-      const dtMs = Math.min(40, now - lastTime);
+      const dtMs = Math.min(33.33, now - lastTime);
       lastTime = now;
-      const dt = dtMs / 33.333;
+      const dt = dtMs * 0.03; // dt relative to 33.33ms
 
       const winW = winWRef.current;
       const totalH = totalHRef.current;
@@ -502,245 +494,243 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
       const currentScrollY = window.scrollY || window.pageYOffset || 0;
       const viewportH = window.innerHeight;
 
-      // Clear viewport area
+      // Viewport culling bounds
       const clearTop = Math.max(0, currentScrollY - 100);
       const clearHeight = Math.min(totalH - clearTop, viewportH + 200);
       ctx.clearRect(0, clearTop, winW, clearHeight);
 
       const isDocs = activeTabRef.current === 'docs';
-      ctx.globalAlpha = isDocs ? 0.2 : 1.0;
+      const globalAlphaFactor = isDocs ? 0.2 : 1.0;
 
-      // Extract current mouse position in page percentage coordinates
       const mousePageX = mousePosRef.current.x;
       const mousePageY = mousePosRef.current.y;
       const mouseVw = (mousePageX / winW) * 100;
       const mouseVh = (mousePageY / totalH) * 100;
 
       const shapes = shapesRef.current;
-      const activeShapes = shapes.filter(s => !s.isEaten);
+      const shapeLen = shapes.length;
+      let neutralCount = 0;
+      let aggressiveCount = 0;
 
-      // 1. UPDATE PHYSICS (Independent of scroll)
-      for (let idx = 0; idx < activeShapes.length; idx++) {
-        const shape = activeShapes[idx];
+      // 1. PHYSICS & INTERACTIONS
+      for (let i = 0; i < shapeLen; i++) {
+        const shape = shapes[i];
         if (shape.isEaten) continue;
 
-        // Mouse interaction
+        if (shape.isAggressive) aggressiveCount++;
+        else neutralCount++;
+
+        // Mouse distance
         const dxMouse = shape.x - mouseVw;
         const dyMouse = shape.y - mouseVh;
-        const distMouse = Math.hypot(dxMouse, dyMouse);
+        const distMouseSq = dxMouse * dxMouse + dyMouse * dyMouse;
         const mouseRadius = 8;
 
-        if (distMouse > 0 && distMouse < mouseRadius) {
+        if (distMouseSq > 0 && distMouseSq < mouseRadius * mouseRadius) {
+          const distMouse = Math.sqrt(distMouseSq);
           const forceRatio = ((mouseRadius - distMouse) / mouseRadius) * 0.0015 * dt;
-          if (!shape.isAggressive) {
-            shape.vx += (dxMouse / distMouse) * forceRatio * 1.5;
-            shape.vy += (dyMouse / distMouse) * forceRatio * 1.5;
-          } else {
-            shape.vx -= (dxMouse / distMouse) * forceRatio * 0.1;
-            shape.vy -= (dyMouse / distMouse) * forceRatio * 0.1;
-          }
+          const mult = shape.isAggressive ? -0.1 : 1.5;
+          shape.vx += (dxMouse / distMouse) * forceRatio * mult;
+          shape.vy += (dyMouse / distMouse) * forceRatio * mult;
         }
 
-        // Aggressive shape behaviors
+        // Aggressive physics
         if (shape.isAggressive) {
-          // Repel other aggressive shapes
-          for (let oIdx = 0; oIdx < activeShapes.length; oIdx++) {
-            const other = activeShapes[oIdx];
-            if (other.isAggressive && other.id !== shape.id && !other.isEaten) {
-              const rdx = shape.x - other.x;
-              const rdy = shape.y - other.y;
-              const rdist = Math.hypot(rdx, rdy);
-              if (rdist > 0 && rdist < 6) {
-                const repelForce = (6 - rdist) * 0.003 * dt;
-                shape.vx += (rdx / rdist) * repelForce;
-                shape.vy += (rdy / rdist) * repelForce;
-              }
-            }
-          }
-
-          // Seek closest neutral shape
           let closest: ShapeItem | null = null;
-          let minDist = 35;
+          let minDistSq = 1225; // 35 * 35
 
-          for (let oIdx = 0; oIdx < activeShapes.length; oIdx++) {
-            const other = activeShapes[oIdx];
-            if (!other.isAggressive && !other.isEaten) {
-              const dx = other.x - shape.x;
-              const dy = other.y - shape.y;
-              const dist = Math.hypot(dx, dy);
-              if (dist < minDist) {
-                minDist = dist;
-                closest = other;
-              }
+          for (let j = 0; j < shapeLen; j++) {
+            const other = shapes[j];
+            if (other.isEaten || other.id === shape.id) continue;
+
+            const dx = other.x - shape.x;
+            const dy = other.y - shape.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (other.isAggressive && distSq < 36 && distSq > 0) {
+              const dist = Math.sqrt(distSq);
+              const repelForce = (6 - dist) * 0.003 * dt;
+              shape.vx -= (dx / dist) * repelForce;
+              shape.vy -= (dy / dist) * repelForce;
+            } else if (!other.isAggressive && distSq < minDistSq) {
+              minDistSq = distSq;
+              closest = other;
             }
           }
 
           if (closest) {
-            const target: ShapeItem = closest;
-            const dx = target.x - shape.x;
-            const dy = target.y - shape.y;
-            const dist = Math.hypot(dx, dy);
-
+            const dist = Math.sqrt(minDistSq);
             if (dist > 0) {
+              const dx = closest.x - shape.x;
+              const dy = closest.y - shape.y;
               shape.vx += (dx / dist) * shape.force * dt;
               shape.vy += (dy / dist) * shape.force * dt;
 
-              const speed = Math.hypot(shape.vx, shape.vy);
-              if (speed > shape.maxSpeed) {
+              const speedSq = shape.vx * shape.vx + shape.vy * shape.vy;
+              if (speedSq > shape.maxSpeed * shape.maxSpeed) {
+                const speed = Math.sqrt(speedSq);
                 shape.vx = (shape.vx / speed) * shape.maxSpeed;
                 shape.vy = (shape.vy / speed) * shape.maxSpeed;
               }
 
-              if (dist < 2.5 && !target.isEaten) {
-                target.isEaten = true;
+              if (dist < 2.5 && !closest.isEaten) {
+                closest.isEaten = true;
                 shape.scale = 1.35;
                 shape.flashActive = true;
-                const targetPageX = (target.x / 100) * winW + target.size / 2;
-                const targetPageY = (target.y / 100) * totalH + target.size / 2;
-                triggerExplosion(target, targetPageX, targetPageY);
+                triggerExplosion(closest, (closest.x * 0.01) * winW + closest.size * 0.5, (closest.y * 0.01) * totalH + closest.size * 0.5);
               }
             }
           }
         }
 
+        // Position integrate
         shape.x += shape.vx * dt;
         shape.y += shape.vy * dt;
         shape.rotation += shape.rotSpeed * dt;
 
-        if (shape.scale > 1) shape.scale -= 0.025 * dt;
-        else shape.scale = 1;
+        if (shape.scale > 1) {
+          shape.scale -= 0.025 * dt;
+          if (shape.scale <= 1.05) shape.flashActive = false;
+        } else {
+          shape.scale = 1;
+        }
 
-        if (shape.scale <= 1.05) shape.flashActive = false;
-
-        const buffer = 2;
-        if (shape.x < buffer) { shape.x = buffer; shape.vx = Math.abs(shape.vx); }
-        else if (shape.x > 100 - buffer) { shape.x = 100 - buffer; shape.vx = -Math.abs(shape.vx); }
-
-        if (shape.y < buffer) { shape.y = buffer; shape.vy = Math.abs(shape.vy); }
-        else if (shape.y > 100 - buffer) { shape.y = 100 - buffer; shape.vy = -Math.abs(shape.vy); }
+        // Screen bounce
+        if (shape.x < 2) { shape.x = 2; shape.vx = Math.abs(shape.vx); }
+        else if (shape.x > 98) { shape.x = 98; shape.vx = -Math.abs(shape.vx); }
+        if (shape.y < 2) { shape.y = 2; shape.vy = Math.abs(shape.vy); }
+        else if (shape.y > 98) { shape.y = 98; shape.vy = -Math.abs(shape.vy); }
       }
 
-      // Repopulate shapes if eaten
-      const neutralCount = activeShapes.filter(s => !s.isAggressive && !s.isEaten).length;
-      const aggressiveCount = activeShapes.filter(s => s.isAggressive && !s.isEaten).length;
-
-      if (neutralCount < 22 && Math.random() < 0.05 * dt) activeShapes.push(createRandomShape(false, true));
-      if (aggressiveCount < 6 && Math.random() < 0.03 * dt) activeShapes.push(createRandomShape(true, true));
-      shapesRef.current = activeShapes;
+      // Repopulate dead shapes
+      if (neutralCount < 22 && Math.random() < 0.05 * dt) shapes.push(createRandomShape(false, true));
+      if (aggressiveCount < 6 && Math.random() < 0.03 * dt) shapes.push(createRandomShape(true, true));
 
       // 2. RENDER SHOCKWAVES
-      const shockwaves = shockwavesRef.current;
-      for (let i = shockwaves.length - 1; i >= 0; i--) {
-        const sw = shockwaves[i];
-        sw.size += 4 * dt;
-        sw.opacity -= 0.035 * dt;
-        if (sw.opacity <= 0) {
-          shockwaves.splice(i, 1);
-          continue;
+      const sData = shockwavesData.current;
+      let activeSw = 0;
+      for (let i = 0; i < shockwaveCount.current; i++) {
+        const idx = i * 5;
+        sData[idx + 2] += 4 * dt; // size
+        sData[idx + 3] -= 0.035 * dt; // opacity
+
+        const opacity = sData[idx + 3];
+        if (opacity > 0) {
+          const swY = sData[idx + 1];
+          const swSize = sData[idx + 2];
+
+          if (swY + swSize >= currentScrollY - 60 && swY - swSize <= currentScrollY + viewportH + 60) {
+            ctx.globalAlpha = globalAlphaFactor * opacity;
+            ctx.strokeStyle = sData[idx + 4] === 1 ? 'rgba(244, 63, 94, 0.75)' : 'rgba(208, 188, 255, 0.75)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sData[idx], swY, swSize * 0.5, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          if (activeSw !== i) {
+            for (let k = 0; k < 5; k++) sData[activeSw * 5 + k] = sData[idx + k];
+          }
+          activeSw++;
         }
-
-        // Viewport culling in absolute page coordinates
-        if (sw.y + sw.size < currentScrollY - 60 || sw.y - sw.size > currentScrollY + viewportH + 60) continue;
-
-        ctx.save();
-        ctx.globalAlpha = (isDocs ? 0.2 : 1.0) * Math.max(0, sw.opacity);
-        ctx.strokeStyle = sw.color;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(sw.x, sw.y, sw.size / 2, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
       }
+      shockwaveCount.current = activeSw;
 
       // 3. RENDER PARTICLES
-      const particles = particlesRef.current;
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.opacity -= 0.025 * dt;
-        if (p.opacity <= 0) {
-          particles.splice(i, 1);
-          continue;
+      const pData = particlesData.current;
+      const pColors = particleColors.current;
+      let activeP = 0;
+      for (let i = 0; i < particleCount.current; i++) {
+        const idx = i * 7;
+        pData[idx] += pData[idx + 2] * dt; // x += vx
+        pData[idx + 1] += pData[idx + 3] * dt; // y += vy
+        pData[idx + 5] -= 0.025 * dt; // opacity
+
+        const opacity = pData[idx + 5];
+        if (opacity > 0) {
+          const py = pData[idx + 1];
+          if (py >= currentScrollY - 40 && py <= currentScrollY + viewportH + 40) {
+            ctx.globalAlpha = globalAlphaFactor * opacity;
+            ctx.fillStyle = pColors[i];
+            ctx.beginPath();
+            ctx.arc(pData[idx], py, pData[idx + 4] * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          if (activeP !== i) {
+            for (let k = 0; k < 7; k++) pData[activeP * 7 + k] = pData[idx + k];
+            pColors[activeP] = pColors[i];
+          }
+          activeP++;
         }
-
-        // Viewport culling
-        if (p.y < currentScrollY - 40 || p.y > currentScrollY + viewportH + 40) continue;
-
-        ctx.save();
-        ctx.globalAlpha = (isDocs ? 0.2 : 1.0) * Math.max(0, p.opacity);
-        ctx.fillStyle = p.color;
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
       }
+      particleCount.current = activeP;
 
-      // 4. RENDER SHAPES (Sorted by depth)
-      const sortedShapes = [...activeShapes].sort((a, b) => {
-        const rank = (s: ShapeItem) => s.isAggressive ? 3 : s.depth === 'front' ? 2 : s.depth === 'mid' ? 1 : 0;
-        return rank(a) - rank(b);
-      });
+      // 4. RENDER SHAPES (Zero-allocation multi-pass by depth)
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
 
-      for (let i = 0; i < sortedShapes.length; i++) {
-        const shape = sortedShapes[i];
-        if (shape.isEaten) continue;
-
-        const pageX = (shape.x / 100) * winW;
-        const pageY = (shape.y / 100) * totalH;
+      const renderShape = (shape: ShapeItem) => {
+        const pageX = (shape.x * 0.01) * winW;
+        const pageY = (shape.y * 0.01) * totalH;
         const renderSize = shape.size;
 
-        // Viewport culling: only draw shapes on screen or near edges
-        if (pageY + renderSize * 2 < currentScrollY - 50 || pageY - renderSize > currentScrollY + viewportH + 50) continue;
+        if (pageY + renderSize * 2 < currentScrollY - 50 || pageY - renderSize > currentScrollY + viewportH + 50) return;
 
-        const path = getPath2D(shape.type);
-        const colorSet = shape.flashActive ? colors.white : colors[shape.colorType];
+        const path = PATH2D_MAP[shape.type];
+        if (!path) return;
 
+        const colorSet = shape.flashActive ? SHAPE_COLORS.white : SHAPE_COLORS[shape.colorType];
         const depthAlpha = shape.depth === 'far' ? 0.45 : shape.depth === 'front' ? 0.95 : 0.8;
         const baseAlpha = isDocs ? 0.2 : depthAlpha;
 
-        ctx.save();
-        ctx.globalAlpha = baseAlpha;
+        const centerX = pageX + renderSize * 0.5;
+        const centerY = pageY + renderSize * 0.5;
 
         // Aggressive ping ring
         if (shape.isAggressive) {
           const pingPhase = (now * 0.0007) % 1;
-          const pingScale = 1 + pingPhase * 0.15;
-          const pingAlpha = (1 - pingPhase) * 0.4 * baseAlpha;
-
-          ctx.save();
+          ctx.globalAlpha = (1 - pingPhase) * 0.4 * baseAlpha;
           ctx.beginPath();
-          ctx.arc(pageX + renderSize / 2, pageY + renderSize / 2, (renderSize / 2) * pingScale + 6, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(244, 63, 94, ${pingAlpha})`;
+          ctx.arc(centerX, centerY, (renderSize * 0.5) * (1 + pingPhase * 0.15) + 6, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(244, 63, 94, 0.9)';
           ctx.lineWidth = 1.5;
           ctx.stroke();
-          ctx.restore();
         }
 
-        // Draw shape with transforms
-        ctx.translate(pageX + renderSize / 2, pageY + renderSize / 2);
-        ctx.rotate((shape.rotation * Math.PI) / 180);
-        const s = (renderSize / 100) * shape.scale;
+        ctx.save();
+        ctx.globalAlpha = baseAlpha;
+        ctx.translate(centerX, centerY);
+        ctx.rotate(shape.rotation * DEG_TO_RAD);
+        const s = (renderSize * 0.01) * shape.scale;
         ctx.scale(s, s);
         ctx.translate(-50, -50);
 
-        if (shape.depth === 'front' || shape.isAggressive) {
-          ctx.shadowColor = shape.isAggressive ? 'rgba(244, 63, 94, 0.4)' : 'rgba(208, 188, 255, 0.25)';
-          ctx.shadowBlur = 12;
-        }
-
         ctx.fillStyle = colorSet.fill;
         ctx.fill(path);
-
         ctx.strokeStyle = colorSet.stroke;
         ctx.lineWidth = shape.isAggressive ? 4 : 2.5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
         ctx.stroke(path);
 
         ctx.restore();
+      };
+
+      // 4 passes to eliminate `sort()` GC overhead entirely: Far -> Mid -> Front -> Aggressive
+      for (let i = 0; i < shapeLen; i++) {
+        const s = shapes[i];
+        if (!s.isEaten && !s.isAggressive && s.depth === 'far') renderShape(s);
+      }
+      for (let i = 0; i < shapeLen; i++) {
+        const s = shapes[i];
+        if (!s.isEaten && !s.isAggressive && s.depth === 'mid') renderShape(s);
+      }
+      for (let i = 0; i < shapeLen; i++) {
+        const s = shapes[i];
+        if (!s.isEaten && !s.isAggressive && s.depth === 'front') renderShape(s);
+      }
+      for (let i = 0; i < shapeLen; i++) {
+        const s = shapes[i];
+        if (!s.isEaten && s.isAggressive) renderShape(s);
       }
 
       animationFrameId = requestAnimationFrame(loop);
@@ -763,45 +753,62 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
   );
 });
 
-/* =========================================================
- * MAIN MATERIAL BACKGROUND STAGE
- * 100% Native Compositor Synchronization with Page Scroll
- * ========================================================= */
+// ---------------------------------------------------------
+// MAIN EXPORTED BACKGROUND COMPONENT
+// ---------------------------------------------------------
 export default function MaterialBackground({ activeTab }: { activeTab: 'landing' | 'docs' }) {
-  const [cursorGlow, setCursorGlow] = useState({ x: -1000, y: -1000 });
+  const isMobile = useIsMobile();
+  const cursorGlowRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handlePointerMove = (e: MouseEvent) => {
-      setCursorGlow({ x: e.clientX, y: e.clientY });
+    if (isMobile) return;
+    const el = cursorGlowRef.current;
+    if (!el) return;
+
+    let rafId = 0;
+    let lastX = -1000;
+    let lastY = -1000;
+
+    const applyPosition = () => {
+      rafId = 0;
+      el.style.transform = `translate3d(${lastX}px, ${lastY}px, 0) translate(-50%, -50%)`;
     };
+
+    const handlePointerMove = (e: MouseEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (!rafId) rafId = requestAnimationFrame(applyPosition);
+    };
+
     window.addEventListener('mousemove', handlePointerMove, { passive: true });
-    return () => window.removeEventListener('mousemove', handlePointerMove);
-  }, []);
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isMobile]);
 
   return (
     <>
-      {/* 1. FIXED SCREEN CURSOR LIGHTING GLOW */}
+      {/* 1. Screen Gradient Glow */}
       <div className="fixed inset-0 z-0 select-none overflow-hidden opacity-30 pointer-events-none">
-        <div
-          className="absolute w-[520px] aspect-square rounded-full bg-m3-primary/20 blur-[130px] transition-transform duration-100 ease-out"
-          style={{
-            left: `${cursorGlow.x}px`,
-            top: `${cursorGlow.y}px`,
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
+        {!isMobile && (
+          <div
+            ref={cursorGlowRef}
+            className="absolute left-0 top-0 w-[520px] aspect-square rounded-full bg-m3-primary/20 blur-[130px] will-change-transform"
+            style={{ transform: 'translate3d(-1000px, -1000px, 0) translate(-50%, -50%)' }}
+          />
+        )}
         <div className="absolute top-[-10%] right-[-10%] w-[600px] aspect-square rounded-full bg-m3-primary/15 blur-[140px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[700px] aspect-square rounded-full bg-m3-tertiary/10 blur-[150px]" />
       </div>
 
-      {/* 2. ABSOLUTE SCROLL-SYNCED STAGE (Moves natively with the page on the GPU Compositor) */}
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
-        {/* Hardware-synced ASCII Waves */}
-        <AsciiWaveCanvas />
-
-        {/* Hardware-synced Interactive Shapes */}
-        <InteractiveShapesCanvas activeTab={activeTab} />
-      </div>
+      {/* 2. Absolute Stage with Hardware Optimization */}
+      {!isMobile && (
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
+          <AsciiWaveCanvas />
+          <InteractiveShapesCanvas activeTab={activeTab} />
+        </div>
+      )}
     </>
   );
 }
