@@ -16,6 +16,7 @@ interface GameCardProps {
 
 function GameCardComponent({ children, className = '', accent = 'primary', id, onClick }: GameCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const rectRef = useRef<DOMRect | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
   // Motion values for spotlight and shadow offset
@@ -68,9 +69,16 @@ function GameCardComponent({ children, className = '', accent = 'primary', id, o
     };
   }, [shadowX, shadowY]);
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (cardRef.current) {
+      rectRef.current = cardRef.current.getBoundingClientRect();
+    }
+  };
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
+    const rect = rectRef.current || cardRef.current.getBoundingClientRect();
     const localX = e.clientX - rect.left;
     const localY = e.clientY - rect.top;
     
@@ -87,12 +95,9 @@ function GameCardComponent({ children, className = '', accent = 'primary', id, o
 
   const handleMouseLeave = () => {
     setIsHovered(false);
+    rectRef.current = null;
     x.set(0);
     y.set(0);
-  };
-
-  const handleMouseEnter = () => {
-    setIsHovered(true);
   };
 
   const isFlex = className.includes('flex');
@@ -126,7 +131,7 @@ function GameCardComponent({ children, className = '', accent = 'primary', id, o
           ? `var(--shadow-x, 0px) var(--shadow-y, 10px) 25px -5px ${colors.glow}, inset 0 0 15px rgba(255,255,255,0.02)` 
           : '0 10px 30px -10px rgba(0,0,0,0.5)',
       }}
-      className={`relative rounded-2xl m3-glass p-6 overflow-hidden transition-all duration-300 group ${className}`}
+      className={`relative rounded-2xl m3-glass p-6 overflow-hidden transition-[box-shadow,border-color] duration-300 group contain-paint ${className}`}
     >
       {/* Google Expressive Material Design Spinning Rainbow Border Glow on Hover */}
       <div 
@@ -142,7 +147,7 @@ function GameCardComponent({ children, className = '', accent = 'primary', id, o
           }}
         />
         {/* Solid inner mask that keeps the card interior clean glass while showing ONLY a crisp edge border glow */}
-        <div className="absolute inset-[3px] rounded-[14px] bg-[#141218]/100 backdrop-blur-xl z-0" />
+        <div className="absolute inset-[3px] rounded-[14px] bg-[#141218] z-0" />
       </div>
 
       {/* Compiler Rendering Coordinate Grid (transparency changes based on cursor location/hover) */}

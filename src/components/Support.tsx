@@ -16,13 +16,19 @@ function SupportComponent() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
-          className="absolute bottom-[-10%] right-[20%] w-[450px] h-[450px] bg-m3-primary/10 rounded-full blur-[110px]" 
+          className="absolute bottom-[-10%] right-[20%] w-[450px] h-[450px] rounded-full pointer-events-none" 
+          style={{
+            background: 'radial-gradient(circle, rgba(208, 188, 255, 0.12) 0%, rgba(208, 188, 255, 0.03) 45%, transparent 70%)',
+          }}
         />
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1.8, ease: "easeOut" }}
-          className="absolute top-[-10%] left-[20%] w-[400px] h-[350px] bg-[#efb8c8]/8 rounded-full blur-[100px]" 
+          className="absolute top-[-10%] left-[20%] w-[400px] h-[350px] rounded-full pointer-events-none" 
+          style={{
+            background: 'radial-gradient(circle, rgba(239, 184, 200, 0.10) 0%, rgba(239, 184, 200, 0.02) 45%, transparent 70%)',
+          }}
         />
       </div>
 
@@ -126,8 +132,13 @@ function SupportComponent() {
             {/* Background glowing shape matching "Демо-стенд" style */}
             <div className="absolute inset-x-0 bottom-0 top-1/2 bg-gradient-to-t from-m3-primaryContainer/20 to-transparent pointer-events-none z-0" />
             
-            {/* Morphing decorative blob behind the text */}
-            <div className="absolute left-[-5%] top-[-20%] w-48 h-48 rounded-full bg-m3-primary/5 blur-3xl pointer-events-none animate-gradient-3" />
+            {/* Decorative ambient glow behind the text */}
+            <div 
+              className="absolute left-[-5%] top-[-20%] w-56 h-56 rounded-full pointer-events-none"
+              style={{
+                background: 'radial-gradient(circle, rgba(208, 188, 255, 0.16) 0%, rgba(208, 188, 255, 0.04) 40%, transparent 70%)',
+              }}
+            />
 
             <div className="text-left relative z-10 max-w-lg">
               <span className="text-[10px] font-mono text-m3-primary font-bold uppercase tracking-widest block mb-2">

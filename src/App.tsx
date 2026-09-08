@@ -19,12 +19,30 @@ import { initializeTheme, applyThemeProperties } from './lib/theme';
 import { motion, AnimatePresence } from 'motion/react';
 import { Download, CheckCircle2, X, Copy } from 'lucide-react';
 import GameButton from './components/GameButton';
+import { parseDocRoute, getCurrentDocPageId, buildDocUrl } from './lib/docsRouting';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'landing' | 'docs'>('landing');
+  const [activeTab, setActiveTab] = useState<'landing' | 'docs'>(() => {
+    const route = parseDocRoute();
+    return route.isDocs ? 'docs' : 'landing';
+  });
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [engineVersion, setEngineVersion] = useState('0.1.0');
+
+  // Sync tab with browser navigation (back/forward)
+  useEffect(() => {
+    const syncRoute = () => {
+      const route = parseDocRoute();
+      setActiveTab(route.isDocs ? 'docs' : 'landing');
+    };
+    window.addEventListener('popstate', syncRoute);
+    window.addEventListener('hashchange', syncRoute);
+    return () => {
+      window.removeEventListener('popstate', syncRoute);
+      window.removeEventListener('hashchange', syncRoute);
+    };
+  }, []);
 
   // Fetch the latest version from NuGet package "Solas" dynamically
   useEffect(() => {
@@ -67,9 +85,26 @@ export default function App() {
     setDownloadSuccess(false);
   }, []);
 
-  const handleDocsClick = useCallback(() => {
-    setActiveTab('docs');
+  const handleTabChange = useCallback((tab: 'landing' | 'docs') => {
+    setActiveTab(tab);
+    const basePath = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    if (tab === 'landing') {
+      window.history.pushState(null, '', basePath || '/');
+    } else {
+      const pageId = getCurrentDocPageId();
+      const url = buildDocUrl(pageId);
+      try {
+        const urlObj = new URL(url);
+        window.history.pushState(null, '', `${urlObj.pathname}${urlObj.search}`);
+      } catch {
+        window.history.pushState(null, '', url);
+      }
+    }
   }, []);
+
+  const handleDocsClick = useCallback(() => {
+    handleTabChange('docs');
+  }, [handleTabChange]);
 
   return (
     <div className="min-h-screen bg-[#0b090f] text-[#ede8f5] selection:bg-m3-primary selection:text-m3-onPrimary relative font-sans overflow-x-clip">
@@ -81,7 +116,7 @@ export default function App() {
         {/* Navigation Header */}
         <Header 
           activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+          setActiveTab={handleTabChange} 
           onDownloadClick={handleDownloadTrigger} 
         />
 
@@ -114,6 +149,7 @@ export default function App() {
 
               {/* 2. DYNAMIC EDL RE-EVALUATION SANDBOX */}
               <motion.div
+                className="content-visibility-auto"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-40px' }}
@@ -126,6 +162,7 @@ export default function App() {
 
               {/* 3. GRAPHS: INTUITIVE SPACE ISOLATION & DEPENDENCY INJECTS */}
               <motion.div
+                className="content-visibility-auto"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-40px' }}
@@ -138,6 +175,7 @@ export default function App() {
 
               {/* 3.5. IMMERSIVE C# SOURCE GENERATION PIPELINE */}
               <motion.div
+                className="content-visibility-auto"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-40px' }}
@@ -150,6 +188,7 @@ export default function App() {
 
               {/* 4. SPRING ROADMAP MODULES PIPELINE */}
               <motion.div
+                className="content-visibility-auto"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-40px' }}
@@ -162,6 +201,7 @@ export default function App() {
 
               {/* 5. PROJECT SUPPORT WITH DONATIONS & SOCIALS BLOB */}
               <motion.div
+                className="content-visibility-auto"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-40px' }}

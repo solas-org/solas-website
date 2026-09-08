@@ -6,7 +6,8 @@
 export interface DocPage {
   id: string;
   title: string;
-  path: string;
+  folder?: string;
+  path?: string;
 }
 
 export interface DocCategory {
@@ -48,3 +49,11 @@ export interface DependencyInjectNode {
   injectedFrom?: string; // ID of the node it is injected from
   status: 'valid' | 'missing';
 }
+
+// #region EngineConfig
+export interface EngineConfig {
+  serializerName: string;
+  vfsRoot: string;
+  targetFps: number;
+}
+// #endregion

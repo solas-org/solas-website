@@ -1,0 +1,18 @@
+{
+  "category": "Архитектура и Сборка",
+  "icon": "Network",
+  "pages": [
+    {
+      "id": "Serialization",
+      "title": "Сериализация"
+    },
+    {
+      "id": "Assets",
+      "title": "Ассеты"
+    },
+    {
+      "id": "Build",
+      "title": "Сборка"
+    }
+  ]
+}

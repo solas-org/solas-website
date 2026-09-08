@@ -99,7 +99,8 @@ function useIsMobile(breakpointPx = 768): boolean {
 }
 
 // ---------------------------------------------------------
-// 1. HARDWARE-SYNCHRONIZED ASCII WAVES COMPONENT
+// 1. HARDWARE-OPTIMIZED ASCII WAVES COMPONENT
+// Fixed to Viewport + Batched Row fillText (250x fewer draw calls) + 30 FPS Cap
 // ---------------------------------------------------------
 const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -107,8 +108,8 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      pointerRef.current.x = e.pageX;
-      pointerRef.current.y = e.pageY;
+      pointerRef.current.x = e.clientX;
+      pointerRef.current.y = e.clientY;
       pointerRef.current.active = true;
     };
     const onLeave = () => {
@@ -132,27 +133,28 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
     let animationFrameId: number;
     let w = 0;
     let h = 0;
+    let charWidth = 7.8;
     let isVisible = !document.hidden;
 
     const characters = [' ', '.', ':', '-', '+', '*', '=', '%', '@', '#'];
     const rampMax = characters.length - 1;
     const cell = 13;
-    const colStep = cell * 0.6;
     const interactionRadius = 140;
     const interactionRadiusSq = interactionRadius * interactionRadius;
     const invInteractionRadius = 1 / interactionRadius;
     const fontStr = `600 ${cell}px ui-monospace, SFMono-Regular, Consolas, monospace`;
 
+    let rowChars: string[] = [];
+
     const updateDimensions = () => {
-      const parent = canvas.parentElement;
-      const targetW = parent ? parent.offsetWidth : window.innerWidth;
-      const targetH = parent ? parent.offsetHeight : Math.max(window.innerHeight, document.documentElement.scrollHeight);
+      const targetW = window.innerWidth;
+      const targetH = window.innerHeight;
 
       if (targetW !== w || targetH !== h) {
         w = targetW;
         h = targetH;
-        // Background ASCII looks crisp enough at DPR 1.0 - 1.25 while saving huge bandwidth
-        const dpr = Math.min(1.25, window.devicePixelRatio || 1);
+        // Viewport canvas at DPR 1.0 for sharp, crisp monospace text with minimal GPU memory
+        const dpr = Math.min(1.0, window.devicePixelRatio || 1);
         canvas.width = (w * dpr) | 0;
         canvas.height = (h * dpr) | 0;
         canvas.style.width = `${w}px`;
@@ -162,17 +164,15 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillStyle = 'rgba(208, 188, 255, 0.22)';
+        charWidth = ctx.measureText('M').width || 7.8;
+
+        const cols = ((w / charWidth) | 0) + 1;
+        rowChars = new Array(cols);
       }
     };
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions, { passive: true });
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (canvas.parentElement && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(updateDimensions);
-      resizeObserver.observe(canvas.parentElement);
-    }
 
     const handleVisibilityChange = () => {
       isVisible = !document.hidden;
@@ -183,42 +183,41 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const startTime = performance.now();
+    let lastDrawTime = 0;
+    const frameInterval = 1000 / 30; // 30 FPS cap for background ASCII wave (cuts CPU load in half)
 
     const draw = (now: number) => {
-      if (!isVisible) {
-        animationFrameId = 0;
-        return;
-      }
+      animationFrameId = requestAnimationFrame(draw);
 
-      if (w <= 0 || h <= 0) {
-        animationFrameId = requestAnimationFrame(draw);
-        return;
-      }
+      if (!isVisible || w <= 0 || h <= 0) return;
+
+      const elapsed = now - lastDrawTime;
+      if (elapsed < frameInterval) return;
+      lastDrawTime = now - (elapsed % frameInterval);
+
+      ctx.clearRect(0, 0, w, h);
 
       const totalRows = ((h / cell) | 0) + 1;
-      const cols = ((w / colStep) | 0) + 1;
+      const cols = ((w / charWidth) | 0) + 1;
+      if (rowChars.length !== cols) {
+        rowChars = new Array(cols);
+      }
 
+      const t = (now - startTime) * 0.0005;
       const currentScrollY = window.scrollY || window.pageYOffset || 0;
-      const viewportH = window.innerHeight;
-      const startRow = Math.max(0, ((currentScrollY - 100) / cell) | 0);
-      const endRow = Math.min(totalRows, (((currentScrollY + viewportH + 100) / cell) | 0) + 1);
-
-      const clearTop = startRow * cell;
-      const clearHeight = (endRow - startRow + 1) * cell;
-      ctx.clearRect(0, clearTop, w, clearHeight);
-
-      const t = (now - startTime) * 0.0005; // speedVal = 0.5
-      const oy = -t * 0.5; // driftY = -1, driftRate = 0.5
-      const waveT = t * 0.1; // waveTension = 0.1
+      const scrollDrift = currentScrollY * 0.0006;
+      const oy = -t * 0.5 + scrollDrift;
+      const waveT = t * 0.1;
       const p = pointerRef.current;
 
-      for (let j = startRow; j < endRow; j++) {
+      // Batched row rendering: 1 ctx.fillText per row instead of 20,000 individual calls
+      for (let j = 0; j < totalRows; j++) {
         const py = j * cell;
         const jTwist = Math.sin((j + t) * 0.1) * 2;
         const jScaleOy = j * 0.08 + oy;
 
         for (let i = 0; i < cols; i++) {
-          const px = i * colStep;
+          const px = i * charWidth;
           const iTwist = Math.cos((i + t) * 0.1) * 2;
           const nx = i * 0.08 + jTwist;
           const ny = jScaleOy + iTwist;
@@ -243,14 +242,14 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
           const norm = (v * 0.6 + 1) * 0.5;
           if (norm > 0.05) {
             const chIdx = (norm * rampMax + 0.5) | 0;
-            if (chIdx > 0) {
-              ctx.fillText(characters[chIdx < rampMax ? chIdx : rampMax], px, py);
-            }
+            rowChars[i] = characters[chIdx < rampMax ? (chIdx > 0 ? chIdx : 0) : rampMax];
+          } else {
+            rowChars[i] = ' ';
           }
         }
-      }
 
-      animationFrameId = requestAnimationFrame(draw);
+        ctx.fillText(rowChars.join(''), 0, py);
+      }
     };
 
     animationFrameId = requestAnimationFrame(draw);
@@ -258,23 +257,23 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', updateDimensions);
-      if (resizeObserver) resizeObserver.disconnect();
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
   return (
-    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-45 select-none">
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden opacity-45 select-none contain-strict">
       <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );
 });
 
 // ---------------------------------------------------------
-// 2. HARDWARE-SYNCHRONIZED INTERACTIVE SHAPES & PARTICLES
+// 2. HARDWARE-OPTIMIZED INTERACTIVE SHAPES & PARTICLES
+// Fixed to Viewport + Optimized Entities + Zero Multi-megabyte Texture Allocations
 // ---------------------------------------------------------
-const MAX_PARTICLES = 250;
-const MAX_SHOCKWAVES = 40;
+const MAX_PARTICLES = 160;
+const MAX_SHOCKWAVES = 25;
 
 const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTab }: { activeTab: 'landing' | 'docs' }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -295,33 +294,33 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
   activeTabRef.current = activeTab;
 
   const winWRef = useRef(1920);
-  const totalHRef = useRef(4000);
+  const winHRef = useRef(1080);
 
   const createRandomShape = (isAggressive = false, borderSpawn = false): ShapeItem => {
     const type = SHAPE_TYPES[(Math.random() * SHAPE_TYPES.length) | 0];
     const depthRoll = Math.random();
     const depth: DepthType = isAggressive ? 'front' : (depthRoll < 0.25 ? 'far' : depthRoll > 0.75 ? 'front' : 'mid');
 
-    const baseSize = isAggressive ? 30 + Math.random() * 20 : 25 + Math.random() * 12;
-    const size = depth === 'far' ? baseSize * 0.75 : depth === 'front' ? baseSize * 1.25 : baseSize;
+    const baseSize = isAggressive ? 30 + Math.random() * 18 : 22 + Math.random() * 12;
+    const size = depth === 'far' ? baseSize * 0.75 : depth === 'front' ? baseSize * 1.2 : baseSize;
 
-    let x = Math.random() * 85 + 7;
-    let y = Math.random() * 92 + 4;
+    let x = Math.random() * 86 + 7;
+    let y = Math.random() * 86 + 7;
     if (borderSpawn) {
       if (Math.random() > 0.5) {
-        x = Math.random() > 0.5 ? -4 : 104;
+        x = Math.random() > 0.5 ? -2 : 102;
         y = Math.random() * 100;
       } else {
         x = Math.random() * 100;
-        y = Math.random() > 0.5 ? -4 : 104;
+        y = Math.random() > 0.5 ? -2 : 102;
       }
     }
 
     const angle = Math.random() * Math.PI * 2;
     const speedMult = depth === 'far' ? 0.4 : depth === 'front' ? 0.8 : 0.6;
-    const maxSpeed = (isAggressive ? 0.035 + Math.random() * 0.05 : 0.026 + Math.random() * 0.05) * speedMult;
+    const maxSpeed = (isAggressive ? 0.038 + Math.random() * 0.04 : 0.024 + Math.random() * 0.04) * speedMult;
     const force = (isAggressive ? 0.0012 + Math.random() * 0.002 : 0.0006 + Math.random() * 0.0012) * speedMult;
-    const initialSpeed = maxSpeed * (0.2 + Math.random() * 0.1);
+    const initialSpeed = maxSpeed * (0.3 + Math.random() * 0.2);
 
     return {
       id: nextShapeId.current++,
@@ -344,13 +343,13 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
     };
   };
 
-  const triggerExplosion = (shape: ShapeItem, pageX: number, pageY: number) => {
+  const triggerExplosion = (shape: ShapeItem, clientX: number, clientY: number) => {
     // Add Shockwave
     if (shockwaveCount.current < MAX_SHOCKWAVES) {
       const idx = shockwaveCount.current * 5;
       const data = shockwavesData.current;
-      data[idx] = pageX;
-      data[idx + 1] = pageY;
+      data[idx] = clientX;
+      data[idx + 1] = clientY;
       data[idx + 2] = shape.size * 0.5;
       data[idx + 3] = 0.95; // opacity
       data[idx + 4] = shape.isAggressive ? 1 : 0;
@@ -358,7 +357,7 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
     }
 
     // Add Particles
-    const count = 14 + ((Math.random() * 6) | 0);
+    const count = 12 + ((Math.random() * 6) | 0);
     const colorPalette = shape.isAggressive ? PARTICLE_COLORS_ROSE : PARTICLE_COLORS_NEUTRAL;
     const pData = particlesData.current;
     const pColors = particleColors.current;
@@ -367,13 +366,13 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
       if (particleCount.current >= MAX_PARTICLES) break;
       const pIdx = particleCount.current * 7;
       const angle = Math.random() * Math.PI * 2;
-      const speed = 1 + Math.random() * 2;
+      const speed = 1.2 + Math.random() * 2.2;
 
-      pData[pIdx] = pageX;
-      pData[pIdx + 1] = pageY;
+      pData[pIdx] = clientX;
+      pData[pIdx + 1] = clientY;
       pData[pIdx + 2] = Math.cos(angle) * speed;
       pData[pIdx + 3] = Math.sin(angle) * speed;
-      pData[pIdx + 4] = 4 + Math.random() * 6; // size
+      pData[pIdx + 4] = 3 + Math.random() * 5; // size
       pData[pIdx + 5] = 1.0; // opacity
       pColors[particleCount.current] = colorPalette[(Math.random() * colorPalette.length) | 0];
       particleCount.current++;
@@ -381,16 +380,17 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
   };
 
   useEffect(() => {
+    // 16 neutral and 4 aggressive shapes in viewport (optimal density without clutter or lag)
     const initial: ShapeItem[] = [];
-    for (let i = 0; i < 26; i++) initial.push(createRandomShape(false));
-    for (let i = 0; i < 8; i++) initial.push(createRandomShape(true));
+    for (let i = 0; i < 16; i++) initial.push(createRandomShape(false));
+    for (let i = 0; i < 4; i++) initial.push(createRandomShape(true));
     shapesRef.current = initial;
   }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      mousePosRef.current.x = e.pageX;
-      mousePosRef.current.y = e.pageY;
+      mousePosRef.current.x = e.clientX;
+      mousePosRef.current.y = e.clientY;
     };
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     return () => window.removeEventListener('mousemove', handleMouseMove);
@@ -401,10 +401,10 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
       const target = e.target as HTMLElement | null;
       if (target?.closest('button, a, input, textarea, select, [role="button"], code, pre, .clickable')) return;
 
-      const clickX = e.pageX;
-      const clickY = e.pageY;
+      const clickX = e.clientX;
+      const clickY = e.clientY;
       const winW = winWRef.current;
-      const totalH = totalHRef.current;
+      const winH = winHRef.current;
       const shapes = shapesRef.current;
 
       for (let i = shapes.length - 1; i >= 0; i--) {
@@ -412,7 +412,7 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
         if (s.isEaten) continue;
 
         const centerX = (s.x * 0.01) * winW + s.size * 0.5;
-        const centerY = (s.y * 0.01) * totalH + s.size * 0.5;
+        const centerY = (s.y * 0.01) * winH + s.size * 0.5;
         const radius = (s.size * 0.5) * s.scale + 20;
 
         const dx = clickX - centerX;
@@ -440,14 +440,13 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
     let isVisible = !document.hidden;
 
     const updateDimensions = () => {
-      const parent = canvas.parentElement;
-      const targetW = parent ? parent.offsetWidth : window.innerWidth;
-      const targetH = parent ? parent.offsetHeight : Math.max(window.innerHeight, document.documentElement.scrollHeight);
+      const targetW = window.innerWidth;
+      const targetH = window.innerHeight;
 
       winWRef.current = targetW;
-      totalHRef.current = targetH;
+      winHRef.current = targetH;
 
-      const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+      const dpr = Math.min(1.25, window.devicePixelRatio || 1);
       canvas.width = (targetW * dpr) | 0;
       canvas.height = (targetH * dpr) | 0;
       canvas.style.width = `${targetW}px`;
@@ -457,12 +456,6 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions, { passive: true });
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (canvas.parentElement && typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(updateDimensions);
-      resizeObserver.observe(canvas.parentElement);
-    }
 
     const handleVisibilityChange = () => {
       isVisible = !document.hidden;
@@ -481,31 +474,26 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
 
       const dtMs = Math.min(33.33, now - lastTime);
       lastTime = now;
-      const dt = dtMs * 0.03; // dt relative to 33.33ms
+      const dt = dtMs * 0.03;
 
       const winW = winWRef.current;
-      const totalH = totalHRef.current;
+      const winH = winHRef.current;
 
-      if (winW <= 0 || totalH <= 0) {
+      if (winW <= 0 || winH <= 0) {
         animationFrameId = requestAnimationFrame(loop);
         return;
       }
 
-      const currentScrollY = window.scrollY || window.pageYOffset || 0;
-      const viewportH = window.innerHeight;
-
-      // Viewport culling bounds
-      const clearTop = Math.max(0, currentScrollY - 100);
-      const clearHeight = Math.min(totalH - clearTop, viewportH + 200);
-      ctx.clearRect(0, clearTop, winW, clearHeight);
+      // Clear viewport canvas directly
+      ctx.clearRect(0, 0, winW, winH);
 
       const isDocs = activeTabRef.current === 'docs';
       const globalAlphaFactor = isDocs ? 0.2 : 1.0;
 
-      const mousePageX = mousePosRef.current.x;
-      const mousePageY = mousePosRef.current.y;
-      const mouseVw = (mousePageX / winW) * 100;
-      const mouseVh = (mousePageY / totalH) * 100;
+      const mouseClientX = mousePosRef.current.x;
+      const mouseClientY = mousePosRef.current.y;
+      const mouseVw = (mouseClientX / winW) * 100;
+      const mouseVh = (mouseClientY / winH) * 100;
 
       const shapes = shapesRef.current;
       const shapeLen = shapes.length;
@@ -524,11 +512,11 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
         const dxMouse = shape.x - mouseVw;
         const dyMouse = shape.y - mouseVh;
         const distMouseSq = dxMouse * dxMouse + dyMouse * dyMouse;
-        const mouseRadius = 8;
+        const mouseRadius = 10;
 
         if (distMouseSq > 0 && distMouseSq < mouseRadius * mouseRadius) {
           const distMouse = Math.sqrt(distMouseSq);
-          const forceRatio = ((mouseRadius - distMouse) / mouseRadius) * 0.0015 * dt;
+          const forceRatio = ((mouseRadius - distMouse) / mouseRadius) * 0.0018 * dt;
           const mult = shape.isAggressive ? -0.1 : 1.5;
           shape.vx += (dxMouse / distMouse) * forceRatio * mult;
           shape.vy += (dyMouse / distMouse) * forceRatio * mult;
@@ -577,7 +565,7 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
                 closest.isEaten = true;
                 shape.scale = 1.35;
                 shape.flashActive = true;
-                triggerExplosion(closest, (closest.x * 0.01) * winW + closest.size * 0.5, (closest.y * 0.01) * totalH + closest.size * 0.5);
+                triggerExplosion(closest, (closest.x * 0.01) * winW + closest.size * 0.5, (closest.y * 0.01) * winH + closest.size * 0.5);
               }
             }
           }
@@ -595,7 +583,7 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
           shape.scale = 1;
         }
 
-        // Screen bounce
+        // Viewport bounce
         if (shape.x < 2) { shape.x = 2; shape.vx = Math.abs(shape.vx); }
         else if (shape.x > 98) { shape.x = 98; shape.vx = -Math.abs(shape.vx); }
         if (shape.y < 2) { shape.y = 2; shape.vy = Math.abs(shape.vy); }
@@ -603,8 +591,8 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
       }
 
       // Repopulate dead shapes
-      if (neutralCount < 22 && Math.random() < 0.05 * dt) shapes.push(createRandomShape(false, true));
-      if (aggressiveCount < 6 && Math.random() < 0.03 * dt) shapes.push(createRandomShape(true, true));
+      if (neutralCount < 14 && Math.random() < 0.05 * dt) shapes.push(createRandomShape(false, true));
+      if (aggressiveCount < 4 && Math.random() < 0.03 * dt) shapes.push(createRandomShape(true, true));
 
       // 2. RENDER SHOCKWAVES
       const sData = shockwavesData.current;
@@ -616,17 +604,16 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
 
         const opacity = sData[idx + 3];
         if (opacity > 0) {
+          const swX = sData[idx];
           const swY = sData[idx + 1];
           const swSize = sData[idx + 2];
 
-          if (swY + swSize >= currentScrollY - 60 && swY - swSize <= currentScrollY + viewportH + 60) {
-            ctx.globalAlpha = globalAlphaFactor * opacity;
-            ctx.strokeStyle = sData[idx + 4] === 1 ? 'rgba(244, 63, 94, 0.75)' : 'rgba(208, 188, 255, 0.75)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(sData[idx], swY, swSize * 0.5, 0, Math.PI * 2);
-            ctx.stroke();
-          }
+          ctx.globalAlpha = globalAlphaFactor * opacity;
+          ctx.strokeStyle = sData[idx + 4] === 1 ? 'rgba(244, 63, 94, 0.75)' : 'rgba(208, 188, 255, 0.75)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(swX, swY, swSize * 0.5, 0, Math.PI * 2);
+          ctx.stroke();
 
           if (activeSw !== i) {
             for (let k = 0; k < 5; k++) sData[activeSw * 5 + k] = sData[idx + k];
@@ -648,14 +635,11 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
 
         const opacity = pData[idx + 5];
         if (opacity > 0) {
-          const py = pData[idx + 1];
-          if (py >= currentScrollY - 40 && py <= currentScrollY + viewportH + 40) {
-            ctx.globalAlpha = globalAlphaFactor * opacity;
-            ctx.fillStyle = pColors[i];
-            ctx.beginPath();
-            ctx.arc(pData[idx], py, pData[idx + 4] * 0.5, 0, Math.PI * 2);
-            ctx.fill();
-          }
+          ctx.globalAlpha = globalAlphaFactor * opacity;
+          ctx.fillStyle = pColors[i];
+          ctx.beginPath();
+          ctx.arc(pData[idx], pData[idx + 1], pData[idx + 4] * 0.5, 0, Math.PI * 2);
+          ctx.fill();
 
           if (activeP !== i) {
             for (let k = 0; k < 7; k++) pData[activeP * 7 + k] = pData[idx + k];
@@ -666,16 +650,14 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
       }
       particleCount.current = activeP;
 
-      // 4. RENDER SHAPES (Zero-allocation multi-pass by depth)
+      // 4. RENDER SHAPES
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
       const renderShape = (shape: ShapeItem) => {
-        const pageX = (shape.x * 0.01) * winW;
-        const pageY = (shape.y * 0.01) * totalH;
+        const screenX = (shape.x * 0.01) * winW;
+        const screenY = (shape.y * 0.01) * winH;
         const renderSize = shape.size;
-
-        if (pageY + renderSize * 2 < currentScrollY - 50 || pageY - renderSize > currentScrollY + viewportH + 50) return;
 
         const path = PATH2D_MAP[shape.type];
         if (!path) return;
@@ -684,8 +666,8 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
         const depthAlpha = shape.depth === 'far' ? 0.45 : shape.depth === 'front' ? 0.95 : 0.8;
         const baseAlpha = isDocs ? 0.2 : depthAlpha;
 
-        const centerX = pageX + renderSize * 0.5;
-        const centerY = pageY + renderSize * 0.5;
+        const centerX = screenX + renderSize * 0.5;
+        const centerY = screenY + renderSize * 0.5;
 
         // Aggressive ping ring
         if (shape.isAggressive) {
@@ -715,7 +697,7 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
         ctx.restore();
       };
 
-      // 4 passes to eliminate `sort()` GC overhead entirely: Far -> Mid -> Front -> Aggressive
+      // 4 passes by depth without sort()
       for (let i = 0; i < shapeLen; i++) {
         const s = shapes[i];
         if (!s.isEaten && !s.isAggressive && s.depth === 'far') renderShape(s);
@@ -741,13 +723,12 @@ const InteractiveShapesCanvas = memo(function InteractiveShapesCanvas({ activeTa
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', updateDimensions);
-      if (resizeObserver) resizeObserver.disconnect();
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
   return (
-    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none" id="material-expressive-canvas">
+    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none contain-strict" id="material-expressive-canvas">
       <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );
@@ -789,22 +770,35 @@ export default function MaterialBackground({ activeTab }: { activeTab: 'landing'
 
   return (
     <>
-      {/* 1. Screen Gradient Glow */}
-      <div className="fixed inset-0 z-0 select-none overflow-hidden opacity-30 pointer-events-none">
+      {/* 1. Screen Gradient Glow (Zero-cost radial-gradients, no heavy multi-pass blur filters) */}
+      <div className="fixed inset-0 z-0 select-none overflow-hidden opacity-35 pointer-events-none contain-strict">
         {!isMobile && (
           <div
             ref={cursorGlowRef}
-            className="absolute left-0 top-0 w-[520px] aspect-square rounded-full bg-m3-primary/20 blur-[130px] will-change-transform"
-            style={{ transform: 'translate3d(-1000px, -1000px, 0) translate(-50%, -50%)' }}
+            className="absolute left-0 top-0 w-[500px] aspect-square rounded-full pointer-events-none will-change-transform"
+            style={{
+              background: 'radial-gradient(circle, rgba(208, 188, 255, 0.22) 0%, rgba(208, 188, 255, 0.06) 40%, transparent 70%)',
+              transform: 'translate3d(-1000px, -1000px, 0) translate(-50%, -50%)',
+            }}
           />
         )}
-        <div className="absolute top-[-10%] right-[-10%] w-[600px] aspect-square rounded-full bg-m3-primary/15 blur-[140px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[700px] aspect-square rounded-full bg-m3-tertiary/10 blur-[150px]" />
+        <div
+          className="absolute top-[-10%] right-[-10%] w-[600px] aspect-square rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(208, 188, 255, 0.16) 0%, rgba(208, 188, 255, 0.05) 45%, transparent 70%)',
+          }}
+        />
+        <div
+          className="absolute bottom-[-10%] left-[-10%] w-[700px] aspect-square rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(239, 184, 200, 0.12) 0%, rgba(239, 184, 200, 0.04) 45%, transparent 70%)',
+          }}
+        />
       </div>
 
-      {/* 2. Absolute Stage with Hardware Optimization */}
+      {/* 2. Hardware-Accelerated Viewport Canvas Stage */}
       {!isMobile && (
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none contain-strict">
           <AsciiWaveCanvas />
           <InteractiveShapesCanvas activeTab={activeTab} />
         </div>

@@ -1,0 +1,14 @@
+{
+  "category": "Введение",
+  "icon": "Compass",
+  "pages": [
+    {
+      "id": "Introduction",
+      "title": "Основная концепция"
+    },
+    {
+      "id": "QuickStart",
+      "title": "Быстрый старт"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "category": "Ядро",
+  "icon": "Cpu",
+  "pages": [
+    {
+      "id": "EDL",
+      "title": "EDL"
+    },
+    {
+      "id": "Spaces",
+      "title": "Пространства"
+    },
+    {
+      "id": "UpdateCycle",
+      "title": "Цикл Update"
+    },
+    {
+      "id": "Query",
+      "title": "Query"
+    },
+    {
+      "id": "Command",
+      "title": "Command"
+    }
+  ]
+}

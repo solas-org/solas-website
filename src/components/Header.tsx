@@ -20,7 +20,7 @@ function HeaderComponent({ activeTab, setActiveTab }: HeaderProps) {
       initial={{ opacity: 0, y: -25 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, type: 'spring', stiffness: 200, damping: 24 }}
-      className="sticky top-2 sm:top-4 z-20 w-full max-w-7xl mx-auto px-2 sm:px-4"
+      className="sticky top-2 sm:top-4 z-50 w-full max-w-7xl mx-auto px-2 sm:px-4"
     >
       <div className="w-full px-3 py-2 sm:px-6 sm:py-3 md:px-8 m3-glass rounded-2xl shadow-2xl flex items-center justify-between gap-2">
         

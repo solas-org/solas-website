@@ -117,8 +117,18 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
       `}</style>
 
       {/* Background radial ambient glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] md:w-[750px] h-[380px] md:h-[750px] bg-m3-primary/10 rounded-full blur-[110px] -z-10 pointer-events-none" />
-      <div className="absolute top-1/3 left-1/3 w-[220px] md:w-[450px] h-[220px] md:h-[450px] bg-m3-tertiary/10 rounded-full blur-[130px] -z-10 pointer-events-none" />
+      <div 
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] md:w-[750px] h-[380px] md:h-[750px] rounded-full -z-10 pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(208, 188, 255, 0.14) 0%, rgba(208, 188, 255, 0.03) 45%, transparent 70%)',
+        }}
+      />
+      <div 
+        className="absolute top-1/3 left-1/3 w-[220px] md:w-[450px] h-[220px] md:h-[450px] rounded-full -z-10 pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(239, 184, 200, 0.12) 0%, rgba(239, 184, 200, 0.02) 45%, transparent 70%)',
+        }}
+      />
 
       {/* Main Display Title */}
       <motion.h1
