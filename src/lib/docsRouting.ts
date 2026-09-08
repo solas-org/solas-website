@@ -94,6 +94,21 @@ export function buildDocUrl(pageId: string, headingSlug?: string): string {
 }
 
 /**
+ * Programmatically navigate to a doc page and optional heading
+ */
+export function navigateToDoc(pageId: string, headingSlug?: string): void {
+  if (typeof window === 'undefined') return;
+  const url = buildDocUrl(pageId, headingSlug);
+  try {
+    const urlObj = new URL(url);
+    window.history.pushState(null, '', `${urlObj.pathname}${urlObj.search}${urlObj.hash}`);
+  } catch {
+    window.history.pushState(null, '', url);
+  }
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+/**
  * Smoothly scrolls to a heading anchor in the document
  */
 export function scrollToHeading(headingSlug: string, delay = 60): void {

@@ -17,7 +17,7 @@ import MaterialBackground from './components/MaterialBackground';
 const DocViewer = React.lazy(() => import('./components/DocViewer'));
 import { initializeTheme, applyThemeProperties } from './lib/theme';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, CheckCircle2, X, Copy } from 'lucide-react';
+import { Download, CheckCircle2, X, Copy, Check, ArrowRight } from 'lucide-react';
 import GameButton from './components/GameButton';
 import { parseDocRoute, getCurrentDocPageId, buildDocUrl } from './lib/docsRouting';
 
@@ -28,6 +28,7 @@ export default function App() {
   });
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [copiedInstallCommand, setCopiedInstallCommand] = useState(false);
   const [engineVersion, setEngineVersion] = useState('0.1.0');
 
   // Sync tab with browser navigation (back/forward)
@@ -336,12 +337,33 @@ export default function App() {
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText('dotnet package add Solas');
+                              setCopiedInstallCommand(true);
+                              setTimeout(() => setCopiedInstallCommand(false), 2000);
                             }}
-                            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
+                            title={copiedInstallCommand ? "Скопировано!" : "Копировать команду"}
+                            aria-label="Копировать команду установки"
+                            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white cursor-pointer"
                           >
-                            <Copy className="w-4 h-4" />
+                            {copiedInstallCommand ? (
+                              <Check className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-m3-primary hover:text-white transition-colors" />
+                            )}
                           </button>
                         </div>
+
+                        <GameButton
+                          id="modal-to-docs-btn"
+                          onClick={() => {
+                            setShowDownloadModal(false);
+                            handleTabChange('docs');
+                          }}
+                          variant="primary"
+                          className="w-full py-3.5 mt-2 flex items-center justify-center gap-2"
+                        >
+                          <span>К документации</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </GameButton>
                     </>
                   )}
                 </div>

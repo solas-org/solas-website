@@ -7,7 +7,7 @@ import React from 'react';
 import { ExternalLink, Hash, Check } from 'lucide-react';
 import CodeBlock from './CodeBlock';
 import CodeGroup from './CodeGroup';
-import { getCurrentDocPageId, buildDocUrl, scrollToHeading } from '../lib/docsRouting';
+import { getCurrentDocPageId, buildDocUrl, scrollToHeading, navigateToDoc } from '../lib/docsRouting';
 
 /**
  * Slugifies header text for anchor links and section navigation
@@ -166,15 +166,49 @@ export const mdxComponents = {
   ),
 
   // 3. LINKS WITH SMOOTH ANIMATIONS & EXTERNAL ICON
-  a: ({ href = '', children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-    const isExternal = href.startsWith('http://') || href.startsWith('https://');
+  a: ({ href = '', children, onClick, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+    const isExternal = href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:');
+
+    const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (onClick) onClick(e);
+      if (e.defaultPrevented || isExternal) return;
+
+      // Handle in-page anchor hash
+      if (href.startsWith('#')) {
+        e.preventDefault();
+        const slug = href.replace(/^#/, '');
+        scrollToHeading(slug);
+        const pageId = getCurrentDocPageId();
+        const url = buildDocUrl(pageId, slug);
+        try {
+          const urlObj = new URL(url);
+          window.history.pushState(null, '', `${urlObj.pathname}${urlObj.search}${urlObj.hash}`);
+        } catch {
+          window.history.pushState(null, '', url);
+        }
+        return;
+      }
+
+      // Handle internal relative or /docs/... links
+      e.preventDefault();
+      let targetPath = href.replace(/^\/+/, '');
+      targetPath = targetPath.replace(/^solas-website\//, '');
+      targetPath = targetPath.replace(/^docs\//, '');
+      const [pageId, hashPart] = targetPath.split('#');
+      if (pageId) {
+        navigateToDoc(pageId, hashPart);
+      } else if (hashPart) {
+        scrollToHeading(hashPart);
+      }
+    };
 
     return (
       <a
         href={href}
+        onClick={handleClick}
         target={isExternal ? '_blank' : undefined}
         rel={isExternal ? 'noopener noreferrer' : undefined}
-        className="text-m3-primary hover:text-m3-tertiary underline underline-offset-4 decoration-m3-primary/40 hover:decoration-m3-tertiary transition-all duration-200 font-medium inline-flex items-center gap-1 group/link"
+        className="text-m3-primary hover:text-m3-tertiary underline underline-offset-4 decoration-m3-primary/40 hover:decoration-m3-tertiary transition-all duration-200 font-medium inline-flex items-center gap-1 group/link cursor-pointer"
         {...props}
       >
         <span>{children}</span>
