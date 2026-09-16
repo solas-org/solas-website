@@ -210,26 +210,6 @@ export default function App() {
               >
                 <Support />
               </motion.div>
-
-              {/* LANDING FOOTER DETAILS */}
-              <footer className="py-12 px-4 border-t border-white/5 bg-black/40 text-center select-none">
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-                  <div className="flex items-center gap-2.5">
-                    <div className="relative w-9 h-9 flex items-center justify-center rounded-xl group-hover:bg-m3-primary/20 transition-all duration-300">
-                      <img 
-                        src={`${import.meta.env.BASE_URL}logo_icon.svg`} 
-                        className="w-full h-full object-contain select-none" 
-                        referrerPolicy="no-referrer"
-                        alt="Solas Logo"
-                      />
-                    </div>
-                    <span className="font-display font-semibold text-sm text-white">Solas Game Engine</span>
-                  </div>
-                  <p className="text-xs justify-end text-[#cac4d0]/60 max-w-sm text-right">
-                    Разработано профессиональной инди-командой со страстью к идеальному DX. Распространяется под свободной лицензией MPL-2.0.
-                  </p>
-                </div>
-              </footer>
             </motion.div>
           ) : (
             <motion.div

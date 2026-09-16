@@ -123,12 +123,6 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
           background: 'radial-gradient(circle, rgba(208, 188, 255, 0.14) 0%, rgba(208, 188, 255, 0.03) 45%, transparent 70%)',
         }}
       />
-      <div 
-        className="absolute top-1/3 left-1/3 w-[220px] md:w-[450px] h-[220px] md:h-[450px] rounded-full -z-10 pointer-events-none"
-        style={{
-          background: 'radial-gradient(circle, rgba(239, 184, 200, 0.12) 0%, rgba(239, 184, 200, 0.02) 45%, transparent 70%)',
-        }}
-      />
 
       {/* Main Display Title */}
       <motion.h1
@@ -196,13 +190,13 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
       </motion.div>
 
       {/* Solve core problems Section Cards - Material 3 Expressive Bento Layout */}
-      <div className="mt-60 w-full max-w-6xl text-left grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className="mt-30 w-full max-w-6xl text-left grid grid-cols-1 md:grid-cols-20 gap-6">
         
         {/* Card 1: Featured DX Card */}
         <GameCard
           id="hero-core-card-1"
           accent="primary"
-          className="md:col-span-3 flex flex-col justify-between p-6"
+          className="md:col-span-11 flex flex-col justify-between p-6"
         >
           <div className="flex flex-col justify-between h-full">
             <div>
@@ -216,21 +210,11 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
                 Удобство разработки (DX)
               </h3>
               <p className="text-m text-[#cac4d0] leading-relaxed max-w-2xl">
-                Реактивные структуры и классы данных, автоматическое внедрение зависимостей, встроенная многопоточность и эффективное получение объектов по компонентам – всё, чтобы разработчикам было максимально комфортно создавать геймплей.
+                Понятный flow разработки, изоляция и иерархия пространств, автоматическое внедрение зависимостей, встроенная многопоточность и эффективное получение объектов по компонентам – всё, чтобы разработчикам было максимально комфортно создавать геймплей.
               </p>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-white/5 flex flex-wrap items-center gap-3 text-xs font-mono text-[#cac4d0]">
-              <span className="px-3 py-1 rounded-lg bg-black/40 border border-white/10 flex items-center gap-1.5 text-emerald-400">
-                Source Generators
-              </span>
-              <span className="px-3 py-1 rounded-lg bg-black/40 border border-white/10 text-m3-primary">
-                Auto-DI Container
-              </span>
-              <span className="px-3 py-1 rounded-lg bg-black/40 border border-white/10 text-m3-tertiary">
-                Parallel Execution
-              </span>
-            </div>
+
           </div>
         </GameCard>
 
@@ -238,7 +222,7 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
         <GameCard
           id="hero-core-card-2"
           accent="tertiary"
-          className="md:col-span-2 flex flex-col justify-between p-6"
+          className="md:col-span-9 flex flex-col justify-between p-6"
         >
           <div className="flex flex-col h-full justify-between">
             <div>
@@ -252,11 +236,6 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
                 Вместо огромных и нечитаемых сцен в формате YAML, Solas хранит данные в максимально компактном виде, сохраняя то, что вам нужно. Вы можете выбрать заготовленные сериализаторы или даже написать свой!
               </p>
             </div>
-            <div className="mt-8 pt-6 border-t border-white/5 flex flex-wrap items-center gap-3 text-xs font-mono text-[#cac4d0]">
-              <span className="px-3 py-1 rounded-lg bg-black/40 border border-white/10 flex items-center gap-1.5 text-emerald-400">
-                EASY SCENE MERGING
-              </span>
-            </div>
           </div>
         </GameCard>
 
@@ -264,7 +243,7 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
         <GameCard
           id="hero-core-card-3"
           accent="secondary"
-          className="md:col-span-5 flex flex-col md:flex-row items-center justify-between gap-6 p-8"
+          className="md:col-span-20 flex flex-col md:flex-row items-center justify-between gap-6 p-8"
         >
           <div className="flex items-start gap-5">
             <div className="w-14 h-14 bg-m3-secondaryContainer/50 rounded-2xl flex items-center justify-center text-m3-secondary shrink-0 shadow-xl shadow-m3-secondary/10">

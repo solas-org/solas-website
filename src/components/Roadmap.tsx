@@ -156,9 +156,6 @@ function RoadmapComponent() {
         
         {/* Section Header */}
         <div className="text-center mb-6">
-          <span className="text-xs font-mono text-m3-primary uppercase tracking-widest bg-m3-primary/10 px-4 py-1.5 rounded-full border-3 border-m3-primary/20">
-            План разработки
-          </span>
           <h2 className="font-display font-bold text-2xl md:text-4xl text-white mt-2 tracking-tight">
             Роадмап проекта
           </h2>

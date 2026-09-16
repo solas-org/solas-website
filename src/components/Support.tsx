@@ -21,15 +21,6 @@ function SupportComponent() {
             background: 'radial-gradient(circle, rgba(208, 188, 255, 0.12) 0%, rgba(208, 188, 255, 0.03) 45%, transparent 70%)',
           }}
         />
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.8, ease: "easeOut" }}
-          className="absolute top-[-10%] left-[20%] w-[400px] h-[350px] rounded-full pointer-events-none" 
-          style={{
-            background: 'radial-gradient(circle, rgba(239, 184, 200, 0.10) 0%, rgba(239, 184, 200, 0.02) 45%, transparent 70%)',
-          }}
-        />
       </div>
 
       <div className="max-w-6xl mx-auto px-4 relative z-10">
@@ -74,7 +65,6 @@ function SupportComponent() {
               </div>
 
               <span className="text-[10px] font-mono tracking-widest text-m3-primary uppercase flex items-center gap-1.5">
-                <QrCode className="w-3.5 h-3.5 text-m3-primary" />
                 Сканируйте для доната
               </span>
             </motion.div>
