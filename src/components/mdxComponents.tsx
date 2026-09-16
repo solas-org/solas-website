@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React from 'react';
 import { ExternalLink, Hash, Check } from 'lucide-react';
 import CodeBlock from './CodeBlock';

@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { memo } from 'react';
 import { BookOpen, Sparkles, Github } from 'lucide-react';
 import { motion } from 'motion/react';

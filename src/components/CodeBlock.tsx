@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, memo } from 'react';
 import { Copy, Check } from 'lucide-react';
 

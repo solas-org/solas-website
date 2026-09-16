@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useMemo, memo } from 'react';
 import { motion } from 'motion/react';
 import { Network, Lock, Unlock, ArrowRight, HelpCircle, AlertCircle, Play, CheckCircle2, Layers } from 'lucide-react';

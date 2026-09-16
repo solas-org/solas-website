@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { MDXProvider } from '@mdx-js/react';
 import Markdown from 'react-markdown';

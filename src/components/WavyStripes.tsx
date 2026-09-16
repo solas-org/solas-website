@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useRef, useState, useEffect, memo } from 'react';
 
 interface WavyStripesProps {

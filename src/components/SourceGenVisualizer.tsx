@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cpu, Zap, Binary, CheckCircle2, RefreshCw, FileText, ArrowRight, Copy, Check } from 'lucide-react';
@@ -88,7 +83,7 @@ const features: GeneratorFeature[] = [
       'Ошибки несовпадения зависимостей отлавливаются прямо на этапе сборки C#.',
       'Интегрировано в древовидные иерархии пространств по умолчанию.'
     ],
-    sourceCode: `public partial class TextLogic : Logic, IInitializable
+    sourceCode: `public partial class TextLogic : ILogic, IInitializable
 {
     [AutoInject] private OtherLogic _otherLogic;
     [Inject] public OtherLogic OtherOtherLogic;
@@ -142,13 +137,13 @@ const features: GeneratorFeature[] = [
       'Безумные 1,000,000+ активных сущностей со стабильными 500+ FPS.'
     ],
     sourceCode: `[Update(Parallel = true)]
-public partial class TextLogic : Logic, IInitializable
+public partial class TextLogic : ILogic, IInitializable
 {
     public TextData Data;
 
     public void Update()
     {
-        //Console.WriteLine(Data.Text.Value);
+        Console.WriteLine(Data.Text.Value);
     }
 }`,
     generatedCode: `namespace Solas.Generated
@@ -394,20 +389,6 @@ function SourceGenVisualizerComponent() {
                 
                 {/* Visualizer C# Source Code tab (Row 1) */}
                 <div className="flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-[var(--color-m3-surface,#141218)]/85 backdrop-blur-md relative group/code shadow-xl">
-                  {/* Copy Button at Top-Right (visible on hover) */}
-                  <button
-                    onClick={() => handleCopy(activeFeature.sourceCode, false)}
-                    type="button"
-                    aria-label="Скопировать код"
-                    title={copiedSource ? "Скопировано!" : "Копировать код"}
-                    className="absolute top-2 right-2 z-20 p-1.5 rounded-lg bg-[var(--color-m3-surface,#1c1a22)]/90 hover:bg-white/15 text-[#cac4d0] hover:text-white border border-white/10 opacity-0 group-hover/code:opacity-100 transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-md active:scale-95 focus:outline-none"
-                  >
-                    {copiedSource ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5 text-m3-primary hover:text-white transition-colors" />
-                    )}
-                  </button>
 
                   <div className="bg-[var(--color-m3-surface,#1c1a22)] px-3.5 py-2 border-b border-white/5 flex items-center justify-between text-[11px] font-mono text-slate-400 select-none pr-10">
                     <span className="flex items-center gap-2">
@@ -424,20 +405,6 @@ function SourceGenVisualizerComponent() {
 
                 {/* Visualizer C# Generated Code output (Row 2) */}
                 <div className="flex flex-col rounded-2xl overflow-hidden border border-emerald-500/20 bg-[var(--color-m3-surface,#141218)]/90 backdrop-blur-md relative group/code shadow-xl">
-                  {/* Copy Button at Top-Right (visible on hover) */}
-                  <button
-                    onClick={() => handleCopy(activeFeature.generatedCode, true)}
-                    type="button"
-                    aria-label="Скопировать код"
-                    title={copiedGenerated ? "Скопировано!" : "Копировать код"}
-                    className="absolute top-2 right-2 z-20 p-1.5 rounded-lg bg-[var(--color-m3-surface,#1c1a22)]/90 hover:bg-white/15 text-[#cac4d0] hover:text-white border border-white/10 opacity-0 group-hover/code:opacity-100 transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-md active:scale-95 focus:outline-none"
-                  >
-                    {copiedGenerated ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5 text-emerald-400 hover:text-white transition-colors" />
-                    )}
-                  </button>
 
                   <div className="bg-[var(--color-m3-surface,#1c1a22)] px-3.5 py-2 border-b border-emerald-500/15 flex items-center justify-between text-[11px] font-mono text-slate-400 select-none pr-10">
                     <span className="flex items-center gap-2">
