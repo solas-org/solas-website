@@ -49,7 +49,7 @@ function HeaderComponent({ activeTab, setActiveTab }: HeaderProps) {
         </div>
 
         {/* Dynamic Material Navigation */}
-        <nav className="flex items-center gap-0.5 sm:gap-1.5 p-0.5 sm:p-1 bg-[#1c1a22]/80 backdrop-blur-md rounded-full border border-white/5">
+        <nav className="flex items-center gap-0.5 sm:gap-1.5 p-0.5 sm:p-1 bg-[var(--color-m3-surface,#1c1a22)]/80 backdrop-blur-md rounded-full border border-white/5">
           <button
             id="nav-tab-landing"
             onClick={() => setActiveTab('landing')}

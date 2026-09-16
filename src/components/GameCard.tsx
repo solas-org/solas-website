@@ -33,23 +33,23 @@ function GameCardComponent({ children, className = '', accent = 'primary', id, o
   // Accent colors mapping
   const colors = {
     primary: {
-      glow: 'rgba(208, 188, 255, 0.25)',
-      spotlight: 'rgba(208, 188, 255, 0.12)',
-      border: 'rgba(208, 188, 255, 0.35)',
+      glow: 'color-mix(in srgb, var(--color-m3-primary, #d0bcff) 25%, transparent)',
+      spotlight: 'color-mix(in srgb, var(--color-m3-primary, #d0bcff) 12%, transparent)',
+      border: 'color-mix(in srgb, var(--color-m3-primary, #d0bcff) 35%, transparent)',
       bracket: 'border-m3-primary',
       text: 'text-m3-primary',
     },
     secondary: {
-      glow: 'rgba(204, 194, 220, 0.25)',
-      spotlight: 'rgba(204, 194, 220, 0.12)',
-      border: 'rgba(204, 194, 220, 0.35)',
+      glow: 'color-mix(in srgb, var(--color-m3-secondary, #ccc2dc) 25%, transparent)',
+      spotlight: 'color-mix(in srgb, var(--color-m3-secondary, #ccc2dc) 12%, transparent)',
+      border: 'color-mix(in srgb, var(--color-m3-secondary, #ccc2dc) 35%, transparent)',
       bracket: 'border-m3-secondary',
       text: 'text-m3-secondary',
     },
     tertiary: {
-      glow: 'rgba(239, 184, 200, 0.25)',
-      spotlight: 'rgba(239, 184, 200, 0.12)',
-      border: 'rgba(239, 184, 200, 0.35)',
+      glow: 'color-mix(in srgb, var(--color-m3-tertiary, #efb8c8) 25%, transparent)',
+      spotlight: 'color-mix(in srgb, var(--color-m3-tertiary, #efb8c8) 12%, transparent)',
+      border: 'color-mix(in srgb, var(--color-m3-tertiary, #efb8c8) 35%, transparent)',
       bracket: 'border-m3-tertiary',
       text: 'text-m3-tertiary',
     },
@@ -147,7 +147,7 @@ function GameCardComponent({ children, className = '', accent = 'primary', id, o
           }}
         />
         {/* Solid inner mask that keeps the card interior clean glass while showing ONLY a crisp edge border glow */}
-        <div className="absolute inset-[3px] rounded-[14px] bg-[#141218] z-0" />
+        <div className="absolute inset-[3px] rounded-[14px] bg-[var(--color-m3-surface,#141218)] z-0" />
       </div>
 
       {/* Compiler Rendering Coordinate Grid (transparency changes based on cursor location/hover) */}

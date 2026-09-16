@@ -120,7 +120,7 @@ function HeroComponent({ onDocsClick, onDownloadClick, engineVersion }: HeroProp
       <div 
         className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] md:w-[750px] h-[380px] md:h-[750px] rounded-full -z-10 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle, rgba(208, 188, 255, 0.14) 0%, rgba(208, 188, 255, 0.03) 45%, transparent 70%)',
+          background: 'radial-gradient(circle, color-mix(in srgb, var(--color-m3-primary, #d0bcff) 9%, transparent) 0%, color-mix(in srgb, var(--color-m3-primary, #d0bcff) 2%, transparent) 45%, transparent 70%)',
         }}
       />
 

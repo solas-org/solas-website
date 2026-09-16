@@ -108,7 +108,7 @@ export default function App() {
   }, [handleTabChange]);
 
   return (
-    <div className="min-h-screen bg-[#0b090f] text-[#ede8f5] selection:bg-m3-primary selection:text-m3-onPrimary relative font-sans overflow-x-clip">
+    <div className="min-h-screen bg-[var(--color-m3-background,#0b090f)] text-[var(--color-m3-onBackground,#ede8f5)] selection:bg-m3-primary selection:text-m3-onPrimary relative font-sans overflow-x-clip">
       
       {/* Expressive Material Design floating shapes + high-performance 2D Canvas background */}
       <MaterialBackground activeTab={activeTab} />
@@ -146,7 +146,7 @@ export default function App() {
                 />
               </motion.div>
 
-              <WavyStripes opacity={0.45} color="rgba(208, 188, 255, 0.3)" speed={10} className="-my-10 z-0" />
+              <WavyStripes opacity={0.45} color="color-mix(in srgb, var(--color-m3-primary, #d0bcff) 30%, transparent)" speed={10} className="-my-10 z-0" />
 
               {/* 2. DYNAMIC EDL RE-EVALUATION SANDBOX */}
               <motion.div

@@ -163,7 +163,9 @@ const AsciiWaveCanvas = memo(function AsciiWaveCanvas() {
         ctx.font = fontStr;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(208, 188, 255, 0.22)';
+        const computedPrimary = window.getComputedStyle(document.documentElement).getPropertyValue('--color-m3-primary').trim() || '#d0bcff';
+        ctx.fillStyle = computedPrimary;
+        ctx.globalAlpha = 0.22;
         charWidth = ctx.measureText('M').width || 7.8;
 
         const cols = ((w / charWidth) | 0) + 1;
@@ -777,7 +779,7 @@ export default function MaterialBackground({ activeTab }: { activeTab: 'landing'
             ref={cursorGlowRef}
             className="absolute left-0 top-0 w-[500px] aspect-square rounded-full pointer-events-none will-change-transform"
             style={{
-              background: 'radial-gradient(circle, rgba(208, 188, 255, 0.22) 0%, rgba(208, 188, 255, 0.06) 40%, transparent 70%)',
+              background: 'radial-gradient(circle, color-mix(in srgb, var(--color-m3-primary, #d0bcff) 12%, transparent) 0%, color-mix(in srgb, var(--color-m3-primary, #d0bcff) 3%, transparent) 40%, transparent 70%)',
               transform: 'translate3d(-1000px, -1000px, 0) translate(-50%, -50%)',
             }}
           />
@@ -785,13 +787,13 @@ export default function MaterialBackground({ activeTab }: { activeTab: 'landing'
         <div
           className="absolute top-[-10%] right-[-10%] w-[600px] aspect-square rounded-full pointer-events-none"
           style={{
-            background: 'radial-gradient(circle, rgba(208, 188, 255, 0.16) 0%, rgba(208, 188, 255, 0.05) 45%, transparent 70%)',
+            background: 'radial-gradient(circle, color-mix(in srgb, var(--color-m3-primary, #d0bcff) 10%, transparent) 0%, color-mix(in srgb, var(--color-m3-primary, #d0bcff) 2%, transparent) 45%, transparent 70%)',
           }}
         />
         <div
           className="absolute bottom-[-10%] left-[-10%] w-[700px] aspect-square rounded-full pointer-events-none"
           style={{
-            background: 'radial-gradient(circle, rgba(239, 184, 200, 0.12) 0%, rgba(239, 184, 200, 0.04) 45%, transparent 70%)',
+            background: 'radial-gradient(circle, color-mix(in srgb, var(--color-m3-tertiary, #efb8c8) 8%, transparent) 0%, color-mix(in srgb, var(--color-m3-tertiary, #efb8c8) 2%, transparent) 45%, transparent 70%)',
           }}
         />
       </div>

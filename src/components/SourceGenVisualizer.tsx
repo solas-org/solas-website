@@ -5,9 +5,10 @@
 
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Cpu, Zap, Binary, CheckCircle2, RefreshCw, FileText, ArrowRight } from 'lucide-react';
+import { Cpu, Zap, Binary, CheckCircle2, RefreshCw, FileText, ArrowRight, Copy, Check } from 'lucide-react';
 import GameCard from './GameCard';
 import GameButton from './GameButton';
+import { SOURCE_GEN_HIGHLIGHTED } from './sourceGenHighlighted';
 
 interface GeneratorFeature {
   id: string;
@@ -187,6 +188,8 @@ function SourceGenVisualizerComponent() {
   const [activeFeatureId, setActiveFeatureId] = useState<string>('serialization');
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState(0);
+  const [copiedSource, setCopiedSource] = useState(false);
+  const [copiedGenerated, setCopiedGenerated] = useState(false);
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -194,6 +197,17 @@ function SourceGenVisualizerComponent() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  const handleCopy = (code: string, isGen: boolean) => {
+    navigator.clipboard.writeText(code);
+    if (isGen) {
+      setCopiedGenerated(true);
+      setTimeout(() => setCopiedGenerated(false), 2000);
+    } else {
+      setCopiedSource(true);
+      setTimeout(() => setCopiedSource(false), 2000);
+    }
+  };
 
   const handleSimulateCompile = () => {
     if (isCompiling) return;
@@ -216,6 +230,10 @@ function SourceGenVisualizerComponent() {
   };
 
   const activeFeature = features.find(f => f.id === activeFeatureId) || features[0];
+  const highlighted = SOURCE_GEN_HIGHLIGHTED[activeFeature.id] || {
+    sourceHtml: `<pre><code>${activeFeature.sourceCode}</code></pre>`,
+    generatedHtml: `<pre><code>${activeFeature.generatedCode}</code></pre>`,
+  };
 
   return (
     <section className="py-20 md:py-24 relative overflow-hidden" id="sourcegen-visualizer-section">
@@ -251,7 +269,7 @@ function SourceGenVisualizerComponent() {
                       className={`p-4 rounded-2xl border-2 text-left transition-all ${
                         isActive
                           ? 'border-m3-primary bg-m3-primaryContainer/70 shadow-[0_4px_20px_rgba(208,188,255,0.15)] text-white'
-                          : 'border-white/5 bg-[#141218]/50 text-[#cac4d0] hover:bg-[#141218]/100 hover:border-m3-secondary/60'
+                          : 'border-white/5 bg-[var(--color-m3-surface,#141218)]/60 text-[#cac4d0] hover:bg-[var(--color-m3-surface,#141218)] hover:border-m3-secondary/60'
                       } cursor-pointer`}
                     >
                       <div className="flex items-center gap-3">
@@ -292,7 +310,7 @@ function SourceGenVisualizerComponent() {
             </div>
 
             {/* Simulated compilation triggers */}
-            <div className="p-4 bg-black/40 rounded-2xl border-2 border-white/10 flex items-center justify-between gap-4 mt-4">
+            <div className="p-4 bg-[var(--color-m3-surface,#141218)]/40 backdrop-blur-md rounded-2xl border-2 border-white/10 flex items-center justify-between gap-4 mt-4">
               <div className="flex-1">
                 <div className="flex justify-between items-center text-[12px] font-mono text-slate-400 mb-1.5">
                   <span className={isCompiling ? "text-m3-primary animate-pulse" : "text-emerald-400"}>
@@ -333,7 +351,7 @@ function SourceGenVisualizerComponent() {
               </div>
 
               {/* Simplified visual pipeline of generation */}
-              <div className="grid grid-cols-1 md:grid-cols-11 gap-2.5 items-center mb-6 py-4 bg-black/35 rounded-2xl border-2 border-white/5 px-4 text-center">
+              <div className="grid grid-cols-1 md:grid-cols-11 gap-2.5 items-center mb-6 py-4 bg-[var(--color-m3-surface,#141218)]/50 rounded-2xl border-2 border-white/5 px-4 text-center">
                 
                 {/* Node 1: Clear C# code input */}
                 <div className="md:col-span-3 p-2.5 rounded-xl bg-white/3 border-2 border-white/5 flex flex-col items-center">
@@ -375,31 +393,63 @@ function SourceGenVisualizerComponent() {
               <div className="flex flex-col gap-4 flex-1">
                 
                 {/* Visualizer C# Source Code tab (Row 1) */}
-                <div className="flex flex-col rounded-2xl overflow-hidden border-2 border-white/5 bg-black/40">
-                  <div className="bg-[#1c1a22] px-3.5 py-2 border-b border-white/5 flex items-center justify-between text-[10px] font-mono text-slate-400 select-none">
+                <div className="flex flex-col rounded-2xl overflow-hidden border border-white/10 bg-[var(--color-m3-surface,#141218)]/85 backdrop-blur-md relative group/code shadow-xl">
+                  {/* Copy Button at Top-Right (visible on hover) */}
+                  <button
+                    onClick={() => handleCopy(activeFeature.sourceCode, false)}
+                    type="button"
+                    aria-label="Скопировать код"
+                    title={copiedSource ? "Скопировано!" : "Копировать код"}
+                    className="absolute top-2 right-2 z-20 p-1.5 rounded-lg bg-[var(--color-m3-surface,#1c1a22)]/90 hover:bg-white/15 text-[#cac4d0] hover:text-white border border-white/10 opacity-0 group-hover/code:opacity-100 transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-md active:scale-95 focus:outline-none"
+                  >
+                    {copiedSource ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 text-m3-primary hover:text-white transition-colors" />
+                    )}
+                  </button>
+
+                  <div className="bg-[var(--color-m3-surface,#1c1a22)] px-3.5 py-2 border-b border-white/5 flex items-center justify-between text-[11px] font-mono text-slate-400 select-none pr-10">
                     <span className="flex items-center gap-2">
                       <FileText className="w-3.5 h-3.5 text-m3-primary" />
                       CleanCode.cs
                     </span>
                     <span className="text-m3-primary font-bold">исходный код разработчика</span>
                   </div>
-                  <pre className="p-4 overflow-x-auto text-[11px] font-mono leading-relaxed text-[#eae8ed] max-h-[180px] overflow-y-auto scrollbox min-h-[215px]">
-                    <code>{activeFeature.sourceCode}</code>
-                  </pre>
+                  <div
+                    className="p-4 overflow-x-auto text-[11.5px] font-mono leading-relaxed max-h-[190px] overflow-y-auto scrollbox min-h-[180px] [&_pre]:!bg-transparent [&_pre]:!p-0 [&_pre]:!m-0 [&_pre]:!border-0 [&_code]:!bg-transparent selection:bg-m3-primary/30 selection:text-white"
+                    dangerouslySetInnerHTML={{ __html: highlighted.sourceHtml }}
+                  />
                 </div>
 
                 {/* Visualizer C# Generated Code output (Row 2) */}
-                <div className="flex flex-col rounded-2xl overflow-hidden border-2 border-m3-primary/20 bg-black/60 relative">
-                  <div className="bg-[#1c1a22] px-3.5 py-2 border-b border-m3-primary/15 flex items-center justify-between text-[10px] font-mono text-slate-400 select-none">
+                <div className="flex flex-col rounded-2xl overflow-hidden border border-emerald-500/20 bg-[var(--color-m3-surface,#141218)]/90 backdrop-blur-md relative group/code shadow-xl">
+                  {/* Copy Button at Top-Right (visible on hover) */}
+                  <button
+                    onClick={() => handleCopy(activeFeature.generatedCode, true)}
+                    type="button"
+                    aria-label="Скопировать код"
+                    title={copiedGenerated ? "Скопировано!" : "Копировать код"}
+                    className="absolute top-2 right-2 z-20 p-1.5 rounded-lg bg-[var(--color-m3-surface,#1c1a22)]/90 hover:bg-white/15 text-[#cac4d0] hover:text-white border border-white/10 opacity-0 group-hover/code:opacity-100 transition-all duration-200 cursor-pointer shadow-lg backdrop-blur-md active:scale-95 focus:outline-none"
+                  >
+                    {copiedGenerated ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 text-emerald-400 hover:text-white transition-colors" />
+                    )}
+                  </button>
+
+                  <div className="bg-[var(--color-m3-surface,#1c1a22)] px-3.5 py-2 border-b border-emerald-500/15 flex items-center justify-between text-[11px] font-mono text-slate-400 select-none pr-10">
                     <span className="flex items-center gap-2">
                       <Binary className="w-3.5 h-3.5 text-emerald-400" />
                       GeneratedCode.g.cs
                     </span>
                     <span className="text-emerald-400 font-bold">сгенерированный код (0ms)</span>
                   </div>
-                  <pre className="p-4 overflow-x-auto text-[11px] font-mono leading-relaxed text-m3-onPrimaryContainer max-h-[220px] overflow-y-auto scrollbox opacity-95 min-h-[450px]">
-                    <code>{activeFeature.generatedCode}</code>
-                  </pre>
+                  <div
+                    className="p-4 overflow-x-auto text-[11.5px] font-mono leading-relaxed max-h-[350px] overflow-y-auto scrollbox min-h-[260px] [&_pre]:!bg-transparent [&_pre]:!p-0 [&_pre]:!m-0 [&_pre]:!border-0 [&_code]:!bg-transparent selection:bg-emerald-500/30 selection:text-white"
+                    dangerouslySetInnerHTML={{ __html: highlighted.generatedHtml }}
+                  />
                 </div>
 
               </div>

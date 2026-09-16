@@ -22,6 +22,53 @@ export interface M3Palette {
   onSurface: string;
 }
 
+/**
+ * Configurable darkness parameters for testing and fine-tuning
+ */
+export interface ThemeDarknessConfig {
+  /**
+   * Main background lightness in percent (0 = pitch black #000000, 2.5 = deep OLED, 6 = lighter).
+   * Default: 2.2%
+   */
+  backgroundLightness: number;
+
+  /**
+   * Surface/cards lightness in percent (0 = black, 5 = very dark, 10 = medium dark).
+   * Default: 5.2%
+   */
+  surfaceLightness: number;
+
+  /**
+   * Secondary/container surface lightness in percent.
+   * Default: 7.2%
+   */
+  surfaceContainerLightness: number;
+
+  /**
+   * Saturation of dark background/surface tint in percent (0 = neutral grayscale/black, 8 = subtle hint, 25 = vivid).
+   * Default: 7%
+   */
+  tintSaturation: number;
+
+  /**
+   * Card glass opacity percentage (0-100%).
+   * Default: 92%
+   */
+  glassOpacity: number;
+}
+
+/**
+ * DEFAULT DARKNESS CONFIGURATION
+ * Edit these values here to adjust the global default darkness across the entire application!
+ */
+export const DEFAULT_DARKNESS_CONFIG: ThemeDarknessConfig = {
+  backgroundLightness: 2.2,
+  surfaceLightness: 5.2,
+  surfaceContainerLightness: 7.2,
+  tintSaturation: 7,
+  glassOpacity: 92,
+};
+
 export const M3_PRESETS: M3Palette[] = [
   // Preset 1: Orchid/Lavender (Standard Cozy Material You Purple)
   {
@@ -37,9 +84,9 @@ export const M3_PRESETS: M3Palette[] = [
     onTertiary: '#492532',
     tertiaryContainer: '#633B48',
     onTertiaryContainer: '#FFD8E4',
-    background: '#141218',
+    background: '#08060b',
     onBackground: '#E6E1E5',
-    surface: '#1D1B20',
+    surface: '#0f0c14',
     onSurface: '#E6E1E5',
   },
   // Preset 2: Emerald/Mint (Tech Fresh)
@@ -56,9 +103,9 @@ export const M3_PRESETS: M3Palette[] = [
     onTertiary: '#003354',
     tertiaryContainer: '#004A77',
     onTertiaryContainer: '#CBE5FF',
-    background: '#0F1311',
+    background: '#050907',
     onBackground: '#E1E3E0',
-    surface: '#171B19',
+    surface: '#0b130f',
     onSurface: '#E1E3E0',
   },
   // Preset 3: Warm Peach/Terracotta (Sunset Autumn)
@@ -75,9 +122,9 @@ export const M3_PRESETS: M3Palette[] = [
     onTertiary: '#402D05',
     tertiaryContainer: '#59431A',
     onTertiaryContainer: '#FFE1BE',
-    background: '#15110F',
+    background: '#090605',
     onBackground: '#EBE0DC',
-    surface: '#1F1916',
+    surface: '#120d09',
     onSurface: '#EBE0DC',
   },
   // Preset 4: Ocean Breeze/Azure (Clean Professional)
@@ -94,9 +141,9 @@ export const M3_PRESETS: M3Palette[] = [
     onTertiary: '#003828',
     tertiaryContainer: '#00523C',
     onTertiaryContainer: '#BBF9DC',
-    background: '#101217',
+    background: '#05070b',
     onBackground: '#E2E2E9',
-    surface: '#191A20',
+    surface: '#0b0f16',
     onSurface: '#E2E2E9',
   },
   // Preset 5: Sakura Pink / Amber Gold (Sweet Flower)
@@ -113,9 +160,9 @@ export const M3_PRESETS: M3Palette[] = [
     onTertiary: '#412D00',
     tertiaryContainer: '#5C430D',
     onTertiaryContainer: '#FFE0A8',
-    background: '#161012',
+    background: '#080507',
     onBackground: '#ECE0E1',
-    surface: '#20181A',
+    surface: '#120b0f',
     onSurface: '#ECE0E1',
   },
   // Preset 6: Cosmic Orchid / Plum
@@ -132,14 +179,14 @@ export const M3_PRESETS: M3Palette[] = [
     onTertiary: '#5C150E',
     tertiaryContainer: '#7C2A22',
     onTertiaryContainer: '#FFDAD5',
-    background: '#141016',
+    background: '#07050a',
     onBackground: '#E8E0E8',
-    surface: '#1E1920',
+    surface: '#100b16',
     onSurface: '#E8E0E8',
   }
 ];
 
-function rgbToHsl(r: number, g: number, b: number) {
+export function rgbToHsl(r: number, g: number, b: number) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   let h = 0, s = 0, l = (max + min) / 2;
@@ -161,7 +208,7 @@ function rgbToHsl(r: number, g: number, b: number) {
   };
 }
 
-function hslToHex(h: number, s: number, l: number) {
+export function hslToHex(h: number, s: number, l: number) {
   l /= 100;
   const a = (s * Math.min(l, 1 - l)) / 100;
   const f = (n: number) => {
@@ -173,10 +220,80 @@ function hslToHex(h: number, s: number, l: number) {
 }
 
 /**
+ * Extracts hue number (0-360) from a hex color string
+ */
+export function getPaletteHue(colorHex: string): number {
+  const match = colorHex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (match) {
+    const r = parseInt(match[1], 16);
+    const g = parseInt(match[2], 16);
+    const b = parseInt(match[3], 16);
+    return rgbToHsl(r, g, b).h;
+  }
+  return 270;
+}
+
+/**
+ * Resolves current darkness configuration from URL query, localStorage, or defaults
+ */
+export function getDarknessConfig(): ThemeDarknessConfig {
+  if (typeof window === 'undefined') return { ...DEFAULT_DARKNESS_CONFIG };
+  
+  // 1. Check URL parameters if present (e.g. ?bgLightness=1.5&surfaceLightness=4.5 or ?darkness=1)
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlDarkness = params.get('darkness');
+    const urlBg = params.get('bgLightness');
+    const urlSurface = params.get('surfaceLightness');
+    const urlSat = params.get('tintSaturation');
+    const urlGlass = params.get('glassOpacity');
+
+    if (urlDarkness !== null || urlBg !== null || urlSurface !== null) {
+      const bgVal = urlBg !== null ? parseFloat(urlBg) : (urlDarkness !== null ? parseFloat(urlDarkness) : DEFAULT_DARKNESS_CONFIG.backgroundLightness);
+      const surfVal = urlSurface !== null ? parseFloat(urlSurface) : (urlDarkness !== null ? parseFloat(urlDarkness) + 3 : DEFAULT_DARKNESS_CONFIG.surfaceLightness);
+      return {
+        backgroundLightness: isNaN(bgVal) ? DEFAULT_DARKNESS_CONFIG.backgroundLightness : bgVal,
+        surfaceLightness: isNaN(surfVal) ? DEFAULT_DARKNESS_CONFIG.surfaceLightness : surfVal,
+        surfaceContainerLightness: isNaN(surfVal) ? DEFAULT_DARKNESS_CONFIG.surfaceContainerLightness : surfVal + 2,
+        tintSaturation: urlSat !== null ? parseFloat(urlSat) : DEFAULT_DARKNESS_CONFIG.tintSaturation,
+        glassOpacity: urlGlass !== null ? parseFloat(urlGlass) : DEFAULT_DARKNESS_CONFIG.glassOpacity,
+      };
+    }
+  } catch {}
+
+  // 2. Check localStorage cache
+  try {
+    const cached = window.localStorage.getItem('m3_darkness_config');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return { ...DEFAULT_DARKNESS_CONFIG, ...parsed };
+    }
+  } catch {}
+
+  return { ...DEFAULT_DARKNESS_CONFIG };
+}
+
+/**
+ * Computes deep dark harmonized surfaces from palette hue and darkness config
+ */
+export function computeDarkSurfaces(palette: M3Palette, config: ThemeDarknessConfig = getDarknessConfig()) {
+  const h = getPaletteHue(palette.primary);
+  return {
+    background: hslToHex(h, config.tintSaturation, config.backgroundLightness),
+    surface: hslToHex(h, config.tintSaturation, config.surfaceLightness),
+    surfaceContainer: hslToHex(h, config.tintSaturation, config.surfaceContainerLightness),
+    onBackground: hslToHex(h, 4, 92),
+    onSurface: hslToHex(h, 4, 92),
+  };
+}
+
+let currentActivePalette: M3Palette = M3_PRESETS[0];
+
+/**
  * Extracts the computed AccentColor from the browser and generates a dynamic Material You palette.
  * Falls back to a randomly picked high-harmony preset if not supported/present.
  */
-export function initializeTheme(): M3Palette & { source: 'system' | 'preset'; index?: number } {
+export function initializeTheme(config: ThemeDarknessConfig = getDarknessConfig()): M3Palette & { source: 'system' | 'preset'; index?: number } {
   if (typeof document === 'undefined') {
     return { ...M3_PRESETS[0], source: 'preset', index: 0 };
   }
@@ -196,27 +313,22 @@ export function initializeTheme(): M3Palette & { source: 'system' | 'preset'; in
     // Parse 'rgb(X, Y, Z)'
     const match = computedColorString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
     
-    // Check if browser actually resolved it to a system-specific color.
-    // If it gives transparent, white or black, or standard browser lacks it, MATCH might fail or yield default theme.
-    // Also, some browsers defaults might resolve to rgb(0, 0, 0) or rgb(255, 255, 255) under certain fallback modes.
     if (match) {
       const r = parseInt(match[1], 10);
       const g = parseInt(match[2], 10);
       const b = parseInt(match[3], 10);
 
-      // Avoid pure grays/black/white as accent colors (usually indicators of failed fallbacks)
+      // Avoid pure grays/black/white as accent colors
       const maxVal = Math.max(r, g, b);
       const minVal = Math.min(r, g, b);
       const chroma = maxVal - minVal;
 
       if (chroma > 15) {
-        // We have a genuine colored system accent! Let's build a stunning dynamic MD3 theme
+        // Genuine system accent detected
         const { h, s } = rgbToHsl(r, g, b);
-
-        // Limit saturation to have clean material look
         const adjustedS = Math.max(30, Math.min(s, 75));
 
-        return {
+        const basePalette: M3Palette = {
           primary: hslToHex(h, adjustedS, 80),
           onPrimary: hslToHex(h, adjustedS, 20),
           primaryContainer: hslToHex(h, adjustedS - 10, 30),
@@ -232,10 +344,15 @@ export function initializeTheme(): M3Palette & { source: 'system' | 'preset'; in
           tertiaryContainer: hslToHex((h + 120) % 360, Math.min(85, adjustedS + 10), 30),
           onTertiaryContainer: hslToHex((h + 120) % 360, Math.min(85, adjustedS + 10), 92),
           
-          background: '#0e0b12',
-          onBackground: '#e6e1e6',
-          surface: '#1b1720',
-          onSurface: '#e6e1e6',
+          background: hslToHex(h, config.tintSaturation, config.backgroundLightness),
+          onBackground: hslToHex(h, 4, 92),
+          surface: hslToHex(h, config.tintSaturation, config.surfaceLightness),
+          onSurface: hslToHex(h, 4, 92),
+        };
+
+        currentActivePalette = basePalette;
+        return {
+          ...basePalette,
           source: 'system'
         };
       }
@@ -244,8 +361,7 @@ export function initializeTheme(): M3Palette & { source: 'system' | 'preset'; in
     console.warn('System AccentColor detection failed, falling back to preset', e);
   }
 
-  // 2. Fallback: Select a random preset
-  // Let's use a simple memory cache via localStorage so the selected theme is stable for this browser session!
+  // 2. Fallback: Select a stored or random preset
   let cachedIndex = 0;
   if (typeof window !== 'undefined' && window.localStorage) {
     const cached = window.localStorage.getItem('m3_accent_theme_idx');
@@ -259,8 +375,8 @@ export function initializeTheme(): M3Palette & { source: 'system' | 'preset'; in
     cachedIndex = Math.floor(Math.random() * M3_PRESETS.length);
   }
 
-  // Clamp key index
   cachedIndex = cachedIndex % M3_PRESETS.length;
+  currentActivePalette = M3_PRESETS[cachedIndex];
 
   return { 
     ...M3_PRESETS[cachedIndex], 
@@ -272,10 +388,13 @@ export function initializeTheme(): M3Palette & { source: 'system' | 'preset'; in
 /**
  * Applies the given theme properties to the HTML root container
  */
-export function applyThemeProperties(palette: M3Palette) {
+export function applyThemeProperties(palette: M3Palette, config: ThemeDarknessConfig = getDarknessConfig()) {
   if (typeof document === 'undefined') return;
+  currentActivePalette = palette;
   const root = document.documentElement;
-  
+
+  const dark = computeDarkSurfaces(palette, config);
+
   root.style.setProperty('--color-m3-primary', palette.primary);
   root.style.setProperty('--color-m3-onPrimary', palette.onPrimary);
   root.style.setProperty('--color-m3-primaryContainer', palette.primaryContainer);
@@ -290,4 +409,65 @@ export function applyThemeProperties(palette: M3Palette) {
   root.style.setProperty('--color-m3-onTertiary', palette.onTertiary);
   root.style.setProperty('--color-m3-tertiaryContainer', palette.tertiaryContainer);
   root.style.setProperty('--color-m3-onTertiaryContainer', palette.onTertiaryContainer);
+
+  root.style.setProperty('--color-m3-background', dark.background);
+  root.style.setProperty('--color-m3-onBackground', dark.onBackground);
+  root.style.setProperty('--color-m3-surface', dark.surface);
+  root.style.setProperty('--color-m3-surfaceContainer', dark.surfaceContainer);
+  root.style.setProperty('--color-m3-onSurface', dark.onSurface);
+  
+  root.style.setProperty('--m3-glass-opacity', `${config.glassOpacity}%`);
+  root.style.setProperty('--m3-bg-lightness', `${config.backgroundLightness}%`);
+  root.style.setProperty('--m3-surface-lightness', `${config.surfaceLightness}%`);
+}
+
+/**
+ * Interactive testing helper for darkness tuning.
+ * Can be called from browser console:
+ *   __setSolasDarkness({ backgroundLightness: 0.5, surfaceLightness: 3.5 });
+ *   __setSolasDarkness({ backgroundLightness: 0 }); // Pure pitch OLED black
+ */
+export function setSolasDarkness(newConfig: Partial<ThemeDarknessConfig>) {
+  const current = getDarknessConfig();
+  const merged: ThemeDarknessConfig = { ...current, ...newConfig };
+  
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem('m3_darkness_config', JSON.stringify(merged));
+  }
+  
+  applyThemeProperties(currentActivePalette, merged);
+  console.log('[Solas Theme] Darkness updated live:', merged);
+  return merged;
+}
+
+/**
+ * Resets darkness to DEFAULT_DARKNESS_CONFIG
+ */
+export function resetSolasDarkness() {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.removeItem('m3_darkness_config');
+  }
+  applyThemeProperties(currentActivePalette, DEFAULT_DARKNESS_CONFIG);
+  console.log('[Solas Theme] Darkness reset to defaults:', DEFAULT_DARKNESS_CONFIG);
+  return DEFAULT_DARKNESS_CONFIG;
+}
+
+// Attach helpers to window for easy browser console experimentation
+if (typeof window !== 'undefined') {
+  (window as any).__setSolasDarkness = setSolasDarkness;
+  (window as any).__resetSolasDarkness = resetSolasDarkness;
+  (window as any).__SOLAS_THEME__ = {
+    getConfig: getDarknessConfig,
+    setDarkness: setSolasDarkness,
+    resetDarkness: resetSolasDarkness,
+    applyPreset: (index: number) => {
+      const idx = index % M3_PRESETS.length;
+      if (window.localStorage) window.localStorage.setItem('m3_accent_theme_idx', idx.toString());
+      currentActivePalette = M3_PRESETS[idx];
+      applyThemeProperties(currentActivePalette, getDarknessConfig());
+      console.log(`[Solas Theme] Switched to preset #${idx}:`, currentActivePalette);
+    },
+    presets: M3_PRESETS,
+    defaults: DEFAULT_DARKNESS_CONFIG,
+  };
 }

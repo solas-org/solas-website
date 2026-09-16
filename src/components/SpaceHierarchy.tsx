@@ -81,7 +81,7 @@ function SpaceHierarchyComponent() {
 
         {/* Tab Selection (Concept 2.2 - Spring-sliding Highlighting Tabs) */}
         <div className="flex justify-center mb-10">
-          <div className="p-1 bg-[#1c1a22] rounded-2xl border-2 border-white/5 flex gap-1 relative overflow-hidden">
+          <div className="p-1 bg-[var(--color-m3-surface,#1c1a22)] rounded-2xl border-2 border-white/5 flex gap-1 relative overflow-hidden">
             <button
               id="subtab-spaces"
               onClick={() => setActiveTab('spaces')}

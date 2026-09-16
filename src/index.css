@@ -29,15 +29,15 @@
 
 @layer base {
   body {
-    background-color: #0b090f;
-    color: #ede8f5;
+    background-color: var(--color-m3-background, #0b090f);
+    color: var(--color-m3-onBackground, #ede8f5);
     font-family: var(--font-sans);
     overflow-x: hidden;
   }
 
   /* Custom glass scrollbar without composite-conflict borders */
   * {
-    scrollbar-color: rgba(208, 188, 255, 0.35) transparent !important;
+    scrollbar-color: color-mix(in srgb, var(--color-m3-primary, #d0bcff) 35%, transparent) transparent !important;
     scrollbar-width: auto !important;
   }
   ::-webkit-scrollbar {
@@ -45,6 +45,7 @@
     height: 14px !important;
     background: transparent !important;
     background-color: transparent !important;
+    border: none !important;
   }
   ::-webkit-scrollbar-track, ::-webkit-scrollbar-track-piece, ::-webkit-scrollbar-corner {
     background: transparent !important;
@@ -57,13 +58,13 @@
     border: none !important;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(208, 188, 255, 0.4) !important;
+    background: color-mix(in srgb, var(--color-m3-primary, #d0bcff) 40%, transparent) !important;
     border-radius: 99px !important;
     border: 3px solid transparent !important;
     background-clip: padding-box !important;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(208, 188, 255, 0.7) !important;
+    background: color-mix(in srgb, var(--color-m3-primary, #d0bcff) 70%, transparent) !important;
     border: 4.5px solid transparent !important;
     background-clip: padding-box !important;
   }
@@ -84,24 +85,24 @@
 }
 
 .m3-glass {
-  background: rgba(20, 16, 28, 0.94);
+  background: color-mix(in srgb, var(--color-m3-surface, #0f0c14) var(--m3-glass-opacity, 92%), transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid color-mix(in srgb, var(--color-m3-primary, #d0bcff) 8%, rgba(255, 255, 255, 0.05));
 }
 
 .m3-glass-secondary {
-  background: rgba(30, 24, 42, 0.92);
+  background: color-mix(in srgb, var(--color-m3-surface, #0f0c14) 97%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-m3-secondary, #ccc2dc) 8%, rgba(255, 255, 255, 0.04));
 }
 
 .m3-glass-accent {
-  background: rgba(48, 38, 68, 0.92);
+  background: color-mix(in srgb, var(--color-m3-primaryContainer, #4f378b) 18%, var(--color-m3-surface, #0f0c14));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1.5px solid rgba(239, 184, 200, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--color-m3-primary, #d0bcff) 25%, transparent);
 }
 
 @keyframes gradient-move-1 {
