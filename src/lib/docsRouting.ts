@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 let currentDocPageId = 'Introduction';
 
 export function setCurrentDocPageId(pageId: string): void {

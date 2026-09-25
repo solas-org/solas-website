@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { visit } from 'unist-util-visit';
 import fs from 'node:fs';
 import path from 'node:path';

@@ -3,6 +3,8 @@ import { MDXProvider } from '@mdx-js/react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkCodeGroup from '../lib/remarkCodeGroup';
+import rehypeShikiFromHighlighter from '@shikijs/rehype/core';
+import { getHighlighter } from '../lib/shikiHighlighter';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Compass, 
@@ -11,7 +13,6 @@ import {
   Search, 
   Check, 
   BookOpen, 
-  FolderOpen, 
   Menu, 
   X, 
   ChevronRight, 
@@ -42,11 +43,17 @@ function DocViewerComponent() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    'Введение': true,
-    'Ядро (Core)': true,
-    'Архитектура и Сборка': true,
-  });
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>();
+
+  // Shiki rehype plugin (requires async init; synchronous once highlighter is ready)
+  const [shikiRehypePlugins, setShikiRehypePlugins] = useState<any[]>([]);
+  useEffect(() => {
+    getHighlighter().then((hl) => {
+      setShikiRehypePlugins([
+        [rehypeShikiFromHighlighter, hl, { theme: 'catppuccin-mocha', langAlias: { slang: 'hlsl' } }],
+      ]);
+    }).catch(console.error);
+  }, []);
 
   // Reference and state to prevent height collapse/jerking when switching to a smaller document
   const contentContainerRef = React.useRef<HTMLDivElement>(null);
@@ -286,7 +293,7 @@ function DocViewerComponent() {
       <div className="grid grid-cols-1 md:grid-cols-12 relative gap-6 md:gap-8">
         {/* LEFT SIDE: Sidebar Navigation - col-span-3 */}
         <aside className={`
-          fixed md:sticky md:top-24 left-0 z-30 w-[280px] md:w-auto md:col-span-3 p-4 sm:p-5 m3-glass border border-white/10 rounded-2xl md:rounded-3xl transition-transform duration-300 transform md:transform-none flex flex-col md:h-fit md:max-h-[calc(100vh-120px)] inset-y-0 md:inset-y-auto
+          fixed md:sticky md:top-24 left-0 z-30 w-[280px] md:w-auto md:col-span-3 p-4 sm:p-5 m3-glass border border-white/10 rounded-2xl md:rounded-2xl transition-transform duration-300 transform md:transform-none flex flex-col md:h-fit md:max-h-[calc(100vh-120px)] inset-y-0 md:inset-y-auto
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `} id="docs-sidebar-panel">
 
@@ -378,13 +385,13 @@ function DocViewerComponent() {
 
         {/* RIGHT SIDE: MDX/Markdown Canvas Display - col-span-9 */}
         <main className="md:col-span-9" id="docs-view-scroll-canvas">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3.5xl mx-auto">
 
             {/* Render compiled MDX or Markdown */}
             <div
               ref={contentContainerRef}
               style={{ minHeight: containerMinHeight ? `${containerMinHeight}px` : undefined }}
-              className="p-6 md:p-10 rounded-3xl m3-glass border border-white/5 shadow-xl relative min-h-[500px] overflow-hidden transition-[min-height] duration-300 ease-out"
+              className="p-6 md:p-10 rounded-2xl m3-glass border border-white/5 shadow-xl relative min-h-[500px] overflow-hidden transition-[min-height] duration-300 ease-out"
             >
 
               <AnimatePresence mode="wait">
@@ -416,6 +423,7 @@ function DocViewerComponent() {
                     ) : (
                       <Markdown
                         remarkPlugins={[remarkGfm, remarkCodeGroup]}
+                        rehypePlugins={shikiRehypePlugins}
                         components={mdxComponents}
                       >
                         {loadedDoc.markdown}
